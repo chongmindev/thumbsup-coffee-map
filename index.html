@@ -318,9 +318,23 @@
     const thumbIcon =
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
 
+    // Turn a photo value into a usable image URL. A normal Google Drive share
+    // link (file must be shared "anyone with the link") is converted to Drive's
+    // embeddable image URL; any other URL is used as-is.
+    function imageUrl(raw) {
+      raw = String(raw || "").trim();
+      if (!raw) return "";
+      if (raw.indexOf("drive.google.com") !== -1) {
+        const m = raw.match(/\/d\/([^/]+)/) || raw.match(/[?&]id=([^&]+)/);
+        if (m) return "https://drive.google.com/thumbnail?id=" + m[1] + "&sz=w1200";
+      }
+      return raw;
+    }
+
     function makeIcon(cafe) {
-      const face = cafe.thumb
-        ? `<div class="pin-face" style="background-image:url('${cafe.thumb}')"></div>`
+      const img = imageUrl(cafe.thumb);
+      const face = img
+        ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
         : `<div class="pin-face">${cupIconCentered}</div>`;
       return L.divIcon({
         className: "coffee-pin",
@@ -339,8 +353,9 @@
     function popupHtml(cafe) {
       // Square photo spot (Instagram dimensions). Shows the post image when a
       // `thumb` URL is set, otherwise a placeholder.
-      const photo = cafe.thumb
-        ? `<div class="card-photo" style="background-image:url('${cafe.thumb}')"></div>`
+      const img = imageUrl(cafe.thumb);
+      const photo = img
+        ? `<div class="card-photo" style="background-image:url('${img}')"></div>`
         : `<div class="card-photo">${cupIcon}</div>`;
       const meta = cafe.address || cafe.area || "";
       return `
