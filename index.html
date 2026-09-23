@@ -114,70 +114,78 @@
     .leaflet-popup-tip { box-shadow: 0 12px 30px rgba(34, 26, 20, 0.15); }
 
     .card-photo {
-      height: 120px;
-      background: linear-gradient(135deg, #efe4d7, #d9c3ab);
-      background-size: cover;
-      background-position: center;
+      height: 130px;
+      background: #efe4d7 center/cover no-repeat;
     }
-    .card-body { padding: 12px 14px 14px; }
+    .card-body {
+      padding: 14px 16px 16px;
+      text-align: center;
+    }
     .card-name {
       font-size: 15px;
       font-weight: 700;
       color: var(--espresso);
-      margin: 0 0 2px;
+      margin: 0 0 3px;
     }
     .card-meta {
       font-size: 12px;
       color: #8a7a6c;
-      margin: 0 0 6px;
+      line-height: 1.35;
+      margin: 0 0 10px;
     }
     .card-rating {
-      display: inline-flex;
+      display: flex;
+      justify-content: center;
       align-items: center;
       gap: 5px;
       font-size: 14px;
       font-weight: 700;
       color: var(--espresso);
-      margin-bottom: 8px;
+      margin: 0 0 8px;
     }
     .card-rating svg { width: 15px; height: 15px; }
     .card-rating-max { color: #b0a294; font-weight: 600; }
     .card-drink {
       display: flex;
+      width: fit-content;
+      max-width: 100%;
+      margin: 0 auto 10px;
       align-items: center;
       gap: 6px;
       font-size: 12px;
       font-weight: 700;
       color: var(--espresso);
       background: var(--cream);
-      border-radius: 8px;
-      padding: 6px 9px;
-      margin: 0 0 10px;
+      border-radius: 999px;
+      padding: 5px 12px;
     }
     .card-drink svg { width: 14px; height: 14px; flex: none; }
     .card-note {
-      font-size: 12px;
+      font-size: 12.5px;
       color: #5c4f45;
-      line-height: 1.4;
-      margin: 0 0 12px;
+      line-height: 1.5;
+      margin: 0 0 14px;
     }
     .ig-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 7px;
       width: 100%;
-      padding: 9px 0;
+      padding: 10px 0;
       border-radius: 10px;
       text-decoration: none;
       color: #fff;
       font-size: 13px;
       font-weight: 700;
-      background: linear-gradient(90deg, var(--ig2), var(--ig3), var(--ig4));
+      letter-spacing: 0.2px;
+      background: linear-gradient(95deg, #f58529, #dd2a7b 45%, #8134af 78%, #515bd4);
+      box-shadow: 0 4px 12px rgba(221, 42, 123, 0.30);
       box-sizing: border-box;
     }
-    .ig-btn:active { opacity: 0.9; }
-    .ig-btn svg { width: 15px; height: 15px; }
+    .ig-btn:hover { filter: brightness(1.05); }
+    .ig-btn:active { transform: translateY(1px); }
+    .ig-btn svg { width: 16px; height: 16px; }
 
     /* ---- floating title chip ---- */
     .title-chip {
@@ -245,15 +253,19 @@
     // would pin the exact door. Swap in the real IG post URL below.
     // ---------------------------------------------------------------
     const SAMPLE_CAFES = [
-      { name: "Cafe Marie", area: "강남구 압구정", lat: 37.5263529, lng: 127.0306863,
+      { name: "Cafe Marie", area: "Apgujeong, Gangnam-gu",
+        address: "45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul",
+        lat: 37.5263529, lng: 127.0306863,
         rating: 4.5, drink: "Cafe Latte Ristretto · Hot",
         note: "Warm, nutty, great mouthfeel and somehow tastes better because I know the guy behind the drink. It's as I remembered it from before my US trip. Awesome latte.",
         ig: "https://www.instagram.com/p/Dc5imVFGaBg/" }
     ];
 
     // ---- map ----
-    const map = L.map("map", { zoomControl: true, scrollWheelZoom: true })
+    // Zoom control on the right so it doesn't sit under the title chip.
+    const map = L.map("map", { zoomControl: false, scrollWheelZoom: true })
       .setView([37.5263529, 127.0306863], 16);
+    L.control.zoom({ position: "topright" }).addTo(map);
 
     // ---- basemap ----
     // MapTiler (free key, domain-restricted) is the one reliable option:
@@ -314,20 +326,21 @@
     }
 
     function popupHtml(cafe) {
+      // Only render the photo block when there's an actual image — otherwise
+      // it's just empty space.
       const photo = cafe.thumb
         ? `<div class="card-photo" style="background-image:url('${cafe.thumb}')"></div>`
-        : `<div class="card-photo"></div>`;
+        : "";
+      const meta = cafe.address || cafe.area || "";
       return `
         ${photo}
         <div class="card-body">
           <p class="card-name">${cafe.name}</p>
-          <p class="card-meta">${cafe.area}</p>
+          ${meta ? `<p class="card-meta">${meta}</p>` : ""}
           <div class="card-rating">${thumbIcon}<span>${cafe.rating.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>
           ${cafe.drink ? `<p class="card-drink">${cupIcon}<span>${cafe.drink}</span></p>` : ""}
-          <p class="card-note">${cafe.note}</p>
-          <a class="ig-btn" href="${cafe.ig}" target="_blank" rel="noopener">
-            ${igIcon} Instagram에서 보기
-          </a>
+          ${cafe.note ? `<p class="card-note">${cafe.note}</p>` : ""}
+          <a class="ig-btn" href="${cafe.ig}" target="_blank" rel="noopener">${igIcon} View on Instagram</a>
         </div>`;
     }
 
@@ -339,7 +352,18 @@
       cafes.forEach((cafe) => {
         if (!isFinite(cafe.lat) || !isFinite(cafe.lng)) return;
         const m = L.marker([cafe.lat, cafe.lng], { icon: makeIcon(cafe) });
-        m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 260 });
+        // We handle panning ourselves so the pin ends up centered AND the whole
+        // popup is on screen, so turn off Leaflet's own autoPan.
+        m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 260, autoPan: false });
+        m.on("popupopen", (e) => {
+          const z = map.getZoom();
+          const pt = map.project(m.getLatLng(), z);
+          const popupH = (e.popup._container && e.popup._container.offsetHeight) || 240;
+          // Shift the view center up by half the popup height: the pin sits
+          // just below center and the popup above it is fully visible/centered.
+          pt.y -= popupH / 2;
+          map.panTo(map.unproject(pt, z), { animate: true });
+        });
         markerLayer.addLayer(m);
         bounds.push([cafe.lat, cafe.lng]);
       });
@@ -373,12 +397,13 @@
       if (!rows.length) return [];
       const header = rows[0].map((h) => h.trim().toLowerCase());
       const idx = (k) => header.indexOf(k);
-      const iName = idx("name"), iArea = idx("area"), iLat = idx("lat"),
-        iLng = idx("lng"), iRating = idx("rating"), iDrink = idx("drink"),
-        iNote = idx("note"), iIg = idx("ig"), iThumb = idx("thumb");
+      const iName = idx("name"), iArea = idx("area"), iAddress = idx("address"),
+        iLat = idx("lat"), iLng = idx("lng"), iRating = idx("rating"),
+        iDrink = idx("drink"), iNote = idx("note"), iIg = idx("ig"), iThumb = idx("thumb");
       return rows.slice(1).map((r) => ({
         name: (r[iName] || "").trim(),
         area: (r[iArea] || "").trim(),
+        address: iAddress >= 0 ? (r[iAddress] || "").trim() : "",
         lat: parseFloat(r[iLat]),
         lng: parseFloat(r[iLng]),
         rating: parseFloat(r[iRating]) || 0,
