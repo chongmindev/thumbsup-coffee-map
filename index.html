@@ -223,7 +223,15 @@
     // Until this is filled in, the map shows the SAMPLE data further down.
     // ===============================================================
     const CONFIG = {
-      sheetCsvUrl: "" // e.g. "https://docs.google.com/spreadsheets/d/e/XXXX/pub?output=csv"
+      sheetCsvUrl: "", // e.g. "https://docs.google.com/spreadsheets/d/e/XXXX/pub?output=csv"
+
+      // MapTiler basemap key (free at maptiler.com → Account → Keys).
+      // IMPORTANT: restrict the key to your domains in the MapTiler dashboard
+      // (chongmindev.github.io + your Squarespace domain). Client-side keys are
+      // public by design; the domain restriction is what protects it.
+      // Until a key is set, the map falls back to OSM (not valid for production).
+      maptilerKey: "",
+      maptilerStyle: "dataviz-light" // clean light style; also: streets-v2, basic-v2, topo-v2
     };
 
     // ---------------------------------------------------------------
@@ -247,18 +255,31 @@
     const map = L.map("map", { zoomControl: true, scrollWheelZoom: true })
       .setView([37.5263529, 127.0306863], 16);
 
-    // ---- basemap: OpenStreetMap (keyless, no watermark) ----
-    // Why not a minimal light/gray style: CARTO now watermarks tiles
-    // ("API KEY REQUIRED"), and Esri's light basemap has no Seoul street
-    // detail past ~z13 (Korea map-data export limits). OSM is community-
-    // mapped, so it has full street-level Seoul coverage and just works.
-    L.tileLayer(
-      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      {
+    // ---- basemap ----
+    // MapTiler (free key, domain-restricted) is the one reliable option:
+    // CARTO watermarks tiles, Esri light has no Seoul streets, and OSM.org
+    // blocks embedded website use. Falls back to OSM only until a key is set.
+    if (CONFIG.maptilerKey) {
+      L.tileLayer(
+        `https://api.maptiler.com/maps/${CONFIG.maptilerStyle}/{z}/{x}/{y}.png?key=${CONFIG.maptilerKey}`,
+        {
+          tileSize: 512,
+          zoomOffset: -1,
+          minZoom: 1,
+          maxZoom: 20,
+          crossOrigin: true,
+          attribution:
+            '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> ' +
+            '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors'
+        }
+      ).addTo(map);
+    } else {
+      console.warn("No MapTiler key set — using OSM fallback (not valid for a production embed).");
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 19,
         attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
-      }
-    ).addTo(map);
+      }).addTo(map);
+    }
 
     const igIcon =
       '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>';

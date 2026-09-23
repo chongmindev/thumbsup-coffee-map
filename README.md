@@ -88,6 +88,23 @@ Until a URL is set, the map shows built-in sample cafes so it always renders.
 > Note: published sheets are cached by Google for a few minutes, so edits appear
 > on the map with a short delay.
 
+### 1d. Basemap key (MapTiler)
+
+The map's background tiles come from MapTiler. Keyless tile sources no longer
+work for an embed (CARTO watermarks them, Esri lacks Korean street detail, and
+OSM.org blocks website use), so a free key is required.
+
+1. Sign up at <https://www.maptiler.com> → **Account → Keys**, copy your key.
+2. In the MapTiler dashboard, **restrict the key** to your domains:
+   `chongmindev.github.io` and your Squarespace domain. (Client-side keys are
+   public; the domain restriction is what stops others using it.)
+3. Paste the key into the `CONFIG.maptilerKey` line in `index.html`. Optionally
+   change `maptilerStyle` (e.g. `dataviz-light`, `streets-v2`, `basic-v2`).
+
+The free tier (100k tile loads/month) is far more than a blog needs. Without a
+key, the map falls back to OSM, which is fine for local preview but not a valid
+production embed.
+
 ---
 
 ## 2. Host it (GitHub Pages, free)
