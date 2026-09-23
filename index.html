@@ -241,7 +241,7 @@
     // Until this is filled in, the map shows the SAMPLE data further down.
     // ===============================================================
     const CONFIG = {
-      sheetCsvUrl: "", // e.g. "https://docs.google.com/spreadsheets/d/e/XXXX/pub?output=csv"
+      sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSQW6l4tPHp5Fp9p8XGuXx1-PTiPY9qC73i8ftUIlcuLzdPKPC35XFxsLgx2eSqwctwlXtf9ilufB3a/pub?gid=445751395&single=true&output=csv",
 
       // MapTiler basemap key (free at maptiler.com → Account → Keys).
       // IMPORTANT: restrict the key to your domains in the MapTiler dashboard
@@ -445,7 +445,9 @@
       fetch(CONFIG.sheetCsvUrl)
         .then((res) => res.text())
         .then((text) => {
-          const cafes = csvToCafes(text);
+          // Only rows that have real coordinates can be placed. If none do yet
+          // (e.g. the sheet still has template rows), fall back to the sample.
+          const cafes = csvToCafes(text).filter((c) => isFinite(c.lat) && isFinite(c.lng));
           render(cafes.length ? cafes : SAMPLE_CAFES);
         })
         .catch((err) => {
