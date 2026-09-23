@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Thumbs Up Coffee Map</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    :root {
+      --espresso: #3b2a20;
+      --crema: #c8a27c;
+      --cream: #f7f1ea;
+      --ink: #221a14;
+      --card: #ffffff;
+      --ig1: #feda75;
+      --ig2: #fa7e1e;
+      --ig3: #d62976;
+      --ig4: #962fbf;
+      --ig5: #4f5bd5;
+    }
+
+    html, body { margin: 0; height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+        "Malgun Gothic", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--cream);
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      background: var(--cream);
+    }
+
+    /* ---- Custom coffee pin ---- */
+    .coffee-pin {
+      /* leaflet sets width/height via iconSize; we center visuals ourselves */
+    }
+    .pin-wrap {
+      position: relative;
+      width: 44px;
+      height: 44px;
+      transform: translateY(0);
+      transition: transform 140ms ease;
+      cursor: pointer;
+    }
+    .pin-wrap:hover { transform: translateY(-4px) scale(1.08); z-index: 1000; }
+
+    .pin-ring {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      padding: 3px;
+      background: conic-gradient(from 210deg, var(--ig1), var(--ig2), var(--ig3), var(--ig4), var(--ig5), var(--ig1));
+      box-shadow: 0 6px 14px rgba(59, 42, 32, 0.35);
+      box-sizing: border-box;
+    }
+    .pin-face {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--card) center/cover no-repeat;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--espresso);
+      border: 2px solid #fff;
+      box-sizing: border-box;
+    }
+    .pin-face svg { width: 22px; height: 22px; }
+    /* little pointer under the circle */
+    .pin-tip {
+      position: absolute;
+      left: 50%;
+      bottom: -6px;
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      transform: translateX(-50%) rotate(45deg);
+      box-shadow: 3px 3px 6px rgba(59, 42, 32, 0.20);
+    }
+    /* rating badge */
+    .pin-badge {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 10px;
+      background: var(--espresso);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 20px;
+      text-align: center;
+      border: 2px solid #fff;
+      box-sizing: content-box;
+    }
+
+    /* ---- Popup card ---- */
+    .leaflet-popup-content-wrapper {
+      border-radius: 16px;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(34, 26, 20, 0.25);
+    }
+    .leaflet-popup-content { margin: 0; width: 232px !important; }
+    .leaflet-popup-tip { box-shadow: 0 12px 30px rgba(34, 26, 20, 0.15); }
+
+    .card-photo {
+      height: 120px;
+      background: linear-gradient(135deg, #efe4d7, #d9c3ab);
+      background-size: cover;
+      background-position: center;
+    }
+    .card-body { padding: 12px 14px 14px; }
+    .card-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--espresso);
+      margin: 0 0 2px;
+    }
+    .card-meta {
+      font-size: 12px;
+      color: #8a7a6c;
+      margin: 0 0 6px;
+    }
+    .card-rating {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--espresso);
+      margin-bottom: 8px;
+    }
+    .card-rating svg { width: 15px; height: 15px; }
+    .card-rating-max { color: #b0a294; font-weight: 600; }
+    .card-drink {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--espresso);
+      background: var(--cream);
+      border-radius: 8px;
+      padding: 6px 9px;
+      margin: 0 0 10px;
+    }
+    .card-drink svg { width: 14px; height: 14px; flex: none; }
+    .card-note {
+      font-size: 12px;
+      color: #5c4f45;
+      line-height: 1.4;
+      margin: 0 0 12px;
+    }
+    .ig-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 9px 0;
+      border-radius: 10px;
+      text-decoration: none;
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      background: linear-gradient(90deg, var(--ig2), var(--ig3), var(--ig4));
+      box-sizing: border-box;
+    }
+    .ig-btn:active { opacity: 0.9; }
+    .ig-btn svg { width: 15px; height: 15px; }
+
+    /* ---- floating title chip ---- */
+    .title-chip {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(6px);
+      border-radius: 999px;
+      padding: 8px 14px 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(34, 26, 20, 0.18);
+      font-weight: 700;
+      color: var(--espresso);
+      font-size: 14px;
+    }
+    .title-chip .dot {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--espresso);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .title-chip .dot svg { width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="title-chip"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 9h1.4a2.6 2.6 0 0 1 0 5.2H17"/><path d="M7.5 2.5c0 1-.9 1.4-.9 2.4S7.5 6.5 7.5 6.5"/><path d="M11 2.5c0 1-.9 1.4-.9 2.4S11 6.5 11 6.5"/></svg></span> Thumbs Up Coffee</div>
+
+  <script>
+    // ===============================================================
+    // CONFIG
+    // ---------------------------------------------------------------
+    // To make the map read from your Google Sheet:
+    //   1. Make a sheet with these columns in row 1 (exact names):
+    //        name | area | lat | lng | rating | note | ig | thumb
+    //      (thumb = optional image URL; leave blank to show the cup icon)
+    //   2. File > Share > Publish to web > choose the sheet > "Comma-
+    //      separated values (.csv)" > Publish. Copy the URL it gives.
+    //   3. Paste that URL between the quotes below.
+    // Until this is filled in, the map shows the SAMPLE data further down.
+    // ===============================================================
+    const CONFIG = {
+      sheetCsvUrl: "" // e.g. "https://docs.google.com/spreadsheets/d/e/XXXX/pub?output=csv"
+    };
+
+    // ---------------------------------------------------------------
+    // SAMPLE DATA (fallback). Once CONFIG.sheetCsvUrl is set, this is
+    // ignored and the map reads your Google Sheet instead.
+    //
+    // Below is one REAL cafe you gave, geocoded from its address.
+    // NOTE: this coordinate is STREET-LEVEL (압구정로34길), not the exact
+    // storefront — the keyless lookup found the street but not building
+    // #45. Pasting a Google Maps share link (or using the Kakao key)
+    // would pin the exact door. Swap in the real IG post URL below.
+    // ---------------------------------------------------------------
+    const SAMPLE_CAFES = [
+      { name: "Cafe Marie", area: "강남구 압구정", lat: 37.5263529, lng: 127.0306863,
+        rating: 4.5, drink: "Cafe Latte Ristretto · Hot",
+        note: "Warm, nutty, great mouthfeel and somehow tastes better because I know the guy behind the drink. It's as I remembered it from before my US trip. Awesome latte.",
+        ig: "https://www.instagram.com/p/Dc5imVFGaBg/" }
+    ];
+
+    // ---- map ----
+    const map = L.map("map", { zoomControl: true, scrollWheelZoom: true })
+      .setView([37.5263529, 127.0306863], 16);
+
+    // ---- basemaps (genuinely keyless) — flip between them via the control ----
+    // NOTE: CARTO was removed — it now stamps "API KEY REQUIRED" on its tiles.
+    const osmAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+    const esriGrayAttr = 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
+    const esriSatAttr = 'Tiles &copy; Esri, Maxar, Earthstar Geographics';
+
+    const basemaps = {
+      "Light (minimal)": L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 16, attribution: esriGrayAttr }),
+      "Street (detailed)": L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        { maxZoom: 19, attribution: osmAttr }),
+      "Satellite": L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { maxZoom: 19, attribution: esriSatAttr })
+    };
+
+    // Default: clean minimal light basemap so the pins stand out.
+    basemaps["Light (minimal)"].addTo(map);
+    L.control.layers(basemaps, null, { position: "topright", collapsed: false }).addTo(map);
+
+    const igIcon =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>';
+
+    // Inline line icons (no emoji).
+    const cupIcon =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 9h1.4a2.6 2.6 0 0 1 0 5.2H17"/><path d="M7.5 2.5c0 1-.9 1.4-.9 2.4S7.5 6.5 7.5 6.5"/><path d="M11 2.5c0 1-.9 1.4-.9 2.4S11 6.5 11 6.5"/></svg>';
+    const thumbIcon =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+
+    function makeIcon(cafe) {
+      const face = cafe.thumb
+        ? `<div class="pin-face" style="background-image:url('${cafe.thumb}')"></div>`
+        : `<div class="pin-face">${cupIcon}</div>`;
+      return L.divIcon({
+        className: "coffee-pin",
+        iconSize: [44, 44],
+        iconAnchor: [22, 50], // point of the tip
+        popupAnchor: [0, -46],
+        html: `
+          <div class="pin-wrap">
+            <div class="pin-ring">${face}</div>
+            <div class="pin-tip"></div>
+            <div class="pin-badge">${cafe.rating.toFixed(1)}</div>
+          </div>`
+      });
+    }
+
+    function popupHtml(cafe) {
+      const photo = cafe.thumb
+        ? `<div class="card-photo" style="background-image:url('${cafe.thumb}')"></div>`
+        : `<div class="card-photo"></div>`;
+      return `
+        ${photo}
+        <div class="card-body">
+          <p class="card-name">${cafe.name}</p>
+          <p class="card-meta">${cafe.area}</p>
+          <div class="card-rating">${thumbIcon}<span>${cafe.rating.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>
+          ${cafe.drink ? `<p class="card-drink">${cupIcon}<span>${cafe.drink}</span></p>` : ""}
+          <p class="card-note">${cafe.note}</p>
+          <a class="ig-btn" href="${cafe.ig}" target="_blank" rel="noopener">
+            ${igIcon} Instagram에서 보기
+          </a>
+        </div>`;
+    }
+
+    // ---- render markers ----
+    let markerLayer = L.layerGroup().addTo(map);
+    function render(cafes) {
+      markerLayer.clearLayers();
+      const bounds = [];
+      cafes.forEach((cafe) => {
+        if (!isFinite(cafe.lat) || !isFinite(cafe.lng)) return;
+        const m = L.marker([cafe.lat, cafe.lng], { icon: makeIcon(cafe) });
+        m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 260 });
+        markerLayer.addLayer(m);
+        bounds.push([cafe.lat, cafe.lng]);
+      });
+      if (bounds.length === 1) map.setView(bounds[0], 16);
+      else if (bounds.length) map.fitBounds(bounds, { padding: [60, 60] });
+    }
+
+    // ---- tiny CSV parser (handles quoted fields, commas, newlines) ----
+    function parseCsv(text) {
+      const rows = [];
+      let row = [], field = "", inQuotes = false;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (inQuotes) {
+          if (c === '"') {
+            if (text[i + 1] === '"') { field += '"'; i++; }
+            else inQuotes = false;
+          } else field += c;
+        } else if (c === '"') inQuotes = true;
+        else if (c === ",") { row.push(field); field = ""; }
+        else if (c === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
+        else if (c === "\r") { /* skip */ }
+        else field += c;
+      }
+      if (field.length || row.length) { row.push(field); rows.push(row); }
+      return rows;
+    }
+
+    function csvToCafes(text) {
+      const rows = parseCsv(text).filter((r) => r.some((c) => c.trim() !== ""));
+      if (!rows.length) return [];
+      const header = rows[0].map((h) => h.trim().toLowerCase());
+      const idx = (k) => header.indexOf(k);
+      const iName = idx("name"), iArea = idx("area"), iLat = idx("lat"),
+        iLng = idx("lng"), iRating = idx("rating"), iDrink = idx("drink"),
+        iNote = idx("note"), iIg = idx("ig"), iThumb = idx("thumb");
+      return rows.slice(1).map((r) => ({
+        name: (r[iName] || "").trim(),
+        area: (r[iArea] || "").trim(),
+        lat: parseFloat(r[iLat]),
+        lng: parseFloat(r[iLng]),
+        rating: parseFloat(r[iRating]) || 0,
+        drink: iDrink >= 0 ? (r[iDrink] || "").trim() : "",
+        note: (r[iNote] || "").trim(),
+        ig: (r[iIg] || "").trim(),
+        thumb: iThumb >= 0 ? (r[iThumb] || "").trim() : ""
+      })).filter((c) => c.name);
+    }
+
+    // ---- load data: Google Sheet if configured, else sample ----
+    if (CONFIG.sheetCsvUrl) {
+      fetch(CONFIG.sheetCsvUrl)
+        .then((res) => res.text())
+        .then((text) => {
+          const cafes = csvToCafes(text);
+          render(cafes.length ? cafes : SAMPLE_CAFES);
+        })
+        .catch((err) => {
+          console.error("Sheet load failed, using sample data:", err);
+          render(SAMPLE_CAFES);
+        });
+    } else {
+      render(SAMPLE_CAFES);
+    }
+  </script>
+</body>
+</html>
