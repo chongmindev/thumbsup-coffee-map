@@ -247,13 +247,16 @@
     const map = L.map("map", { zoomControl: true, scrollWheelZoom: true })
       .setView([37.5263529, 127.0306863], 16);
 
-    // ---- basemap: one clean, keyless light style so the pins stand out ----
-    // (CARTO was dropped — it now watermarks tiles with "API KEY REQUIRED".)
+    // ---- basemap: OpenStreetMap (keyless, no watermark) ----
+    // Why not a minimal light/gray style: CARTO now watermarks tiles
+    // ("API KEY REQUIRED"), and Esri's light basemap has no Seoul street
+    // detail past ~z13 (Korea map-data export limits). OSM is community-
+    // mapped, so it has full street-level Seoul coverage and just works.
     L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
       {
-        maxZoom: 16,
-        attribution: "Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
+        maxZoom: 19,
+        attribution: "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
       }
     ).addTo(map);
 
