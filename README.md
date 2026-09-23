@@ -21,12 +21,14 @@ you** (see the geocoder in step 1b).
 
 1. Create a Google Sheet. Put these column headers in **row 1**, exactly:
 
-   | name | area | map_link | lat | lng | rating | drink | note | ig | thumb |
-   |------|------|----------|-----|-----|--------|-------|------|----|-------|
+   | name | area | address | map_link | lat | lng | rating | drink | note | ig | thumb |
+   |------|------|---------|----------|-----|-----|--------|-------|------|----|-------|
 
-   - `name` — the cafe name (e.g. `Fritz Coffee`).
-   - `area` — neighborhood, e.g. `강남구 신사`. Shows in the popup; also helps
+   - `name` — the cafe name (e.g. `Cafe Marie`).
+   - `area` — short neighborhood label, e.g. `Apgujeong, Gangnam-gu`. Helps
      name-based lookup.
+   - `address` — the full street address shown in the popup, e.g.
+     `45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul`. Optional.
    - `map_link` — **the easy way to set location.** Paste a map "share" link
      here (see 1b). Leave blank if you'd rather rely on name lookup.
    - `lat` / `lng` — **leave blank.** The script fills these. You can hide these

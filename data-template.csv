@@ -1,3 +1,3 @@
-name,area,map_link,lat,lng,rating,drink,note,ig,thumb
-Cafe Marie,강남구 압구정,https://maps.app.goo.gl/EXAMPLE,,,4.5,Cafe Latte Ristretto · Hot,"Warm, nutty, great mouthfeel. Awesome latte.",https://www.instagram.com/p/Dc5imVFGaBg/,
-Center Coffee,성동구 성수,,,,4.4,,"밝고 넓은 로스터리. 필터 커피 라인업이 탄탄합니다.",https://www.instagram.com/p/EXAMPLE2/,
+name,area,address,map_link,lat,lng,rating,drink,note,ig,thumb
+Cafe Marie,"Apgujeong, Gangnam-gu","45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul",https://maps.app.goo.gl/EXAMPLE,,,4.5,Cafe Latte Ristretto · Hot,"Warm, nutty, great mouthfeel. Awesome latte.",https://www.instagram.com/p/Dc5imVFGaBg/,
+Center Coffee,"Seongsu, Seongdong-gu",,,,,4.4,,"Bright, spacious roastery with a strong filter-coffee lineup.",https://www.instagram.com/p/EXAMPLE2/,
