@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Thumbs Up Coffee Map</title>
 
-  <!-- Fonts: Fraunces (soft serif, cozy) + Nunito Sans (warm, rounded) -->
+  <!-- Font: Inter (clean, widely used on modern blogs) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -30,13 +30,11 @@
 
     html, body { margin: 0; height: 100%; }
     body {
-      font-family: "Nunito Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
       color: var(--ink);
       background: var(--cream);
     }
-    /* Cozy soft serif for names/titles. */
-    .serif { font-family: "Fraunces", Georgia, "Times New Roman", serif; }
 
     #map {
       position: absolute;
@@ -50,21 +48,20 @@
     }
     .pin-wrap {
       position: relative;
-      width: 44px;
-      height: 44px;
-      transform: translateY(0);
+      width: 50px;
+      height: 50px;
       transition: transform 140ms ease;
       cursor: pointer;
+      filter: drop-shadow(0 6px 10px rgba(59, 42, 32, 0.30));
     }
-    .pin-wrap:hover { transform: translateY(-4px) scale(1.08); z-index: 1000; }
+    .pin-wrap:hover { transform: translateY(-4px) scale(1.06); z-index: 1000; }
 
     .pin-ring {
-      width: 44px;
-      height: 44px;
+      width: 50px;
+      height: 50px;
       border-radius: 50%;
-      padding: 3px;
+      padding: 2.5px;
       background: conic-gradient(from 210deg, var(--ig1), var(--ig2), var(--ig3), var(--ig4), var(--ig5), var(--ig1));
-      box-shadow: 0 6px 14px rgba(59, 42, 32, 0.35);
       box-sizing: border-box;
     }
     .pin-face {
@@ -76,20 +73,20 @@
       align-items: center;
       justify-content: center;
       color: var(--espresso);
-      border: 2px solid #fff;
+      border: 2.5px solid #fff;
       box-sizing: border-box;
     }
-    .pin-face svg { width: 22px; height: 22px; }
-    /* little pointer under the circle */
+    .pin-face svg { width: 24px; height: 24px; }
+    /* pointer under the circle */
     .pin-tip {
       position: absolute;
       left: 50%;
-      bottom: -6px;
-      width: 12px;
-      height: 12px;
+      bottom: -4px;
+      width: 14px;
+      height: 14px;
       background: #fff;
       transform: translateX(-50%) rotate(45deg);
-      box-shadow: 3px 3px 6px rgba(59, 42, 32, 0.20);
+      z-index: -1;
     }
     /* rating badge */
     .pin-badge {
@@ -136,9 +133,8 @@
       text-align: center;
     }
     .card-name {
-      font-family: "Fraunces", Georgia, serif;
-      font-size: 18px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 700;
       color: var(--espresso);
       margin: 0 0 3px;
     }
@@ -160,13 +156,10 @@
     }
     .card-rating svg { width: 15px; height: 15px; }
     .card-rating-max { color: #b0a294; font-weight: 600; }
+    .card-drink-row { text-align: center; margin: 0 0 10px; }
     .card-drink {
-      display: flex;
-      width: fit-content;
-      max-width: 100%;
-      margin: 0 auto 10px;
+      display: inline-flex;
       align-items: center;
-      gap: 6px;
       font-size: 12px;
       font-weight: 700;
       color: var(--espresso);
@@ -174,7 +167,6 @@
       border-radius: 999px;
       padding: 5px 12px;
     }
-    .card-drink svg { width: 14px; height: 14px; flex: none; }
     .card-note {
       font-size: 12.5px;
       color: #5c4f45;
@@ -219,10 +211,9 @@
       align-items: center;
       gap: 8px;
       box-shadow: 0 4px 14px rgba(34, 26, 20, 0.18);
-      font-family: "Fraunces", Georgia, serif;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--espresso);
-      font-size: 15px;
+      font-size: 14px;
     }
     .title-chip .dot {
       width: 24px; height: 24px; border-radius: 50%;
@@ -275,6 +266,7 @@
       { name: "Cafe Marie", area: "Apgujeong, Gangnam-gu",
         address: "45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul",
         lat: 37.5263529, lng: 127.0306863,
+        thumb: "images/cafe-marie.jpg",
         rating: 4.5, drink: "Cafe Latte Ristretto · Hot",
         note: "Warm, nutty, great mouthfeel and somehow tastes better because I know the guy behind the drink. It's as I remembered it from before my US trip. Awesome latte.",
         ig: "https://www.instagram.com/p/Dc5imVFGaBg/" }
@@ -332,9 +324,9 @@
         : `<div class="pin-face">${cupIconCentered}</div>`;
       return L.divIcon({
         className: "coffee-pin",
-        iconSize: [44, 44],
-        iconAnchor: [22, 50], // point of the tip
-        popupAnchor: [0, -46],
+        iconSize: [50, 50],
+        iconAnchor: [25, 56], // point of the tip
+        popupAnchor: [0, -52],
         html: `
           <div class="pin-wrap">
             <div class="pin-ring">${face}</div>
@@ -357,7 +349,7 @@
           <p class="card-name">${cafe.name}</p>
           ${meta ? `<p class="card-meta">${meta}</p>` : ""}
           <div class="card-rating">${thumbIcon}<span>${cafe.rating.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>
-          ${cafe.drink ? `<p class="card-drink">${cafe.drink}</p>` : ""}
+          ${cafe.drink ? `<div class="card-drink-row"><span class="card-drink">${cafe.drink}</span></div>` : ""}
           ${cafe.note ? `<p class="card-note">${cafe.note}</p>` : ""}
           <a class="ig-btn" href="${cafe.ig}" target="_blank" rel="noopener">${igIcon} View on Instagram</a>
         </div>`;
