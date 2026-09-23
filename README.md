@@ -36,7 +36,11 @@ you** (see the geocoder in step 1b).
    - `ig` — the full URL of the Instagram post (e.g. `https://www.instagram.com/p/ABC123/`).
    - `drink` — the drink you rated, shown as a chip (e.g. `Cafe Latte · Hot`). Optional.
    - `note` — the review text shown in the popup. Commas are fine. Optional.
-   - `thumb` — optional image URL. Leave blank to show the coffee-cup icon.
+   - `thumb` — the post's photo, shown as a square in the popup and cropped into
+     the pin. Paste an **image URL**. Instagram image links can't be used
+     directly (they expire / block hot-linking), so host the image — easiest is
+     to commit it to an `images/` folder in this repo and use a path like
+     `images/cafe-marie.jpg`. Leave blank to show the coffee-cup placeholder.
    - `rating` — a number like `4.5` (shown as a badge). Optional.
 
    (`data-template.csv` in this folder has the headers + example rows you can
