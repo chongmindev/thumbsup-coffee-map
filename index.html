@@ -247,27 +247,15 @@
     const map = L.map("map", { zoomControl: true, scrollWheelZoom: true })
       .setView([37.5263529, 127.0306863], 16);
 
-    // ---- basemaps (genuinely keyless) — flip between them via the control ----
-    // NOTE: CARTO was removed — it now stamps "API KEY REQUIRED" on its tiles.
-    const osmAttr = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-    const esriGrayAttr = 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors';
-    const esriSatAttr = 'Tiles &copy; Esri, Maxar, Earthstar Geographics';
-
-    const basemaps = {
-      "Light (minimal)": L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
-        { maxZoom: 16, attribution: esriGrayAttr }),
-      "Street (detailed)": L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        { maxZoom: 19, attribution: osmAttr }),
-      "Satellite": L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        { maxZoom: 19, attribution: esriSatAttr })
-    };
-
-    // Default: clean minimal light basemap so the pins stand out.
-    basemaps["Light (minimal)"].addTo(map);
-    L.control.layers(basemaps, null, { position: "topright", collapsed: false }).addTo(map);
+    // ---- basemap: one clean, keyless light style so the pins stand out ----
+    // (CARTO was dropped — it now watermarks tiles with "API KEY REQUIRED".)
+    L.tileLayer(
+      "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+      {
+        maxZoom: 16,
+        attribution: "Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors"
+      }
+    ).addTo(map);
 
     const igIcon =
       '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>';
