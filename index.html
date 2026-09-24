@@ -77,44 +77,25 @@
       box-sizing: border-box;
     }
     .pin-face svg { width: 24px; height: 24px; }
-    /* visit-count badge: solid accent circle on the top-right shoulder */
-    .pin-count {
+    /* rating badge on the top-right shoulder, colored by score */
+    .pin-score {
       position: absolute;
-      top: -5px;
-      right: -5px;
-      min-width: 18px;
-      height: 18px;
-      padding: 0 4px;
-      border-radius: 9px;
-      background: var(--espresso);
+      top: -6px;
+      right: -6px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 10px;
       color: #fff;
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 800;
       border: 2px solid #fff;
-      box-sizing: border-box;
+      box-sizing: content-box;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
     }
-    /* rating: white pill under the pin (the quality label) */
-    .pin-rating {
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translate(-50%, -9px);
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      background: #fff;
-      color: var(--espresso);
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 999px;
-      white-space: nowrap;
-      box-shadow: 0 2px 6px rgba(59, 42, 32, 0.3);
-    }
-    .pin-rating svg { width: 11px; height: 11px; flex: none; }
 
     /* ---- Popup card ---- */
     .leaflet-popup-content-wrapper {
@@ -513,6 +494,13 @@
       return String(v.thumb || "").split("|").map((s) => imageUrl(s)).filter(Boolean);
     }
 
+    // Score → earthy green / amber / terracotta (green-yellow-red, coffee-toned).
+    function ratingColor(r) {
+      if (r >= 4) return "#4f8a5b";   // good — muted green
+      if (r >= 3) return "#cf9a34";   // ok — warm amber
+      return "#c0563f";               // low — terracotta red
+    }
+
     function makeIcon(cafe) {
       const top = cafe.visits[0];
       // Pins use a tiny thumbnail (images/thumb/...) so they load fast.
@@ -523,10 +511,8 @@
         : `<div class="pin-face">${cupIconCentered}</div>`;
       const r = parseFloat(top.rating);
       const rv = Number.isInteger(r) ? String(r) : r.toFixed(1); // "5" not "5.0"
-      // Rating = quality label UNDER the pin; count = accent badge on the shoulder.
-      const rating = isFinite(r) ? `<div class="pin-rating">${thumbIcon}${rv}</div>` : "";
-      const count = cafe.visits.length > 1
-        ? `<div class="pin-count">${cafe.visits.length}</div>` : "";
+      const rating = isFinite(r)
+        ? `<div class="pin-score" style="background:${ratingColor(r)}">${rv}</div>` : "";
       return L.divIcon({
         className: "coffee-pin",
         iconSize: [50, 50],
@@ -535,7 +521,7 @@
         html: `
           <div class="pin-wrap">
             <div class="pin-ring">${face}</div>
-            ${count}${rating}
+            ${rating}
           </div>`
       });
     }
