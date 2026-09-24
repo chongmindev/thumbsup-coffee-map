@@ -212,6 +212,8 @@
       display: flex; align-items: center; justify-content: center;
     }
     .vn-arrow:hover { background: var(--cream); }
+    /* fixed-width side slots keep the date centered even with one arrow */
+    .vn-side { width: 24px; flex: none; display: flex; justify-content: center; }
     .vn-label { font-size: 12px; font-weight: 700; color: var(--espresso); }
     .card-body {
       padding: 11px 18px 16px;
@@ -566,7 +568,7 @@
       // Always show the date (even for a single visit); arrows only when there
       // is a post in that direction.
       const visitNav = v.date
-        ? `<div class="visit-nav">${leftArrow}<span class="vn-label">${fmtDate(v.date)}</span>${rightArrow}</div>`
+        ? `<div class="visit-nav"><span class="vn-side">${leftArrow}</span><span class="vn-label">${fmtDate(v.date)}</span><span class="vn-side">${rightArrow}</span></div>`
         : "";
 
       const meta = cafe.address || cafe.area || "";
