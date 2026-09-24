@@ -227,23 +227,28 @@
       margin: 0 0 3px;
     }
     .card-meta {
-      font-size: 12px;
+      font-size: var(--meta-size, 12px);
       color: #8a7a6c;
       line-height: 1.35;
       margin: 0 0 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+    /* rating centered on the "/" so 4.5 and 5 balance around the middle */
     .card-rating {
-      display: flex;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 5px;
       font-size: 14px;
       font-weight: 700;
       color: var(--espresso);
       margin: 0 0 12px;
     }
+    .cr-left { justify-self: end; display: inline-flex; align-items: center; gap: 5px; }
+    .cr-slash { padding: 0 5px; color: #b0a294; font-weight: 600; }
+    .cr-right { justify-self: start; color: #b0a294; font-weight: 600; }
     .card-rating svg { width: 15px; height: 15px; }
-    .card-rating-max { color: #b0a294; font-weight: 600; }
     .card-drink-row { text-align: center; margin: 0 0 12px; }
     .card-drink {
       display: inline-flex;
@@ -416,6 +421,11 @@
       .setView([37.5263529, 127.0306863], 16);
     L.control.zoom({ position: "topright" }).addTo(map);
 
+    // A user zoom (scroll or buttons) closes the open card. The programmatic
+    // zoom we do when opening a card sets `autoPanning` so it doesn't self-close.
+    let autoPanning = false;
+    map.on("zoomstart", () => { if (!autoPanning) map.closePopup(); });
+
     // ---- basemap ----
     // MapTiler (free key, domain-restricted) is the one reliable option:
     // CARTO watermarks tiles, Esri light has no Seoul streets, and OSM.org
@@ -536,6 +546,34 @@
       return mon + " " + parseInt(p[2], 10) + ", " + p[0];
     }
 
+    // Trim redundant parts (country, county) so addresses are shorter/cleaner.
+    function shortenAddr(s) {
+      return String(s || "").split(",").map((x) => x.trim())
+        .filter((x) => x && !/^(south korea|united states|usa|u\.?s\.?a?\.?)$/i.test(x) && !/ county$/i.test(x))
+        .join(", ");
+    }
+
+    // Pick the largest single font size at which every address fits on one line.
+    function fitMetaFont(cafes) {
+      const texts = cafes.map((c) => shortenAddr(c.address || c.area || "")).filter(Boolean);
+      if (!texts.length) return;
+      const span = document.createElement("span");
+      span.style.cssText = "position:absolute;left:-9999px;visibility:hidden;white-space:nowrap;" +
+        "font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-weight:400;";
+      document.body.appendChild(span);
+      const ref = 20, avail = 244 - 4; // card text width minus a little safety
+      let size = 13; // upper cap
+      texts.forEach((t) => {
+        span.style.fontSize = ref + "px";
+        span.textContent = t;
+        const w = span.getBoundingClientRect().width;
+        if (w > 0) size = Math.min(size, ref * avail / w);
+      });
+      document.body.removeChild(span);
+      size = Math.max(8, Math.min(13, size));
+      document.documentElement.style.setProperty("--meta-size", size.toFixed(1) + "px");
+    }
+
     // One visit's card content, for cafe.visits[i] showing photo p.
     function visitCard(cafe, i, p) {
       const v = cafe.visits[i];
@@ -571,10 +609,10 @@
         ? `<div class="visit-nav"><span class="vn-side">${leftArrow}</span><span class="vn-label">${fmtDate(v.date)}</span><span class="vn-side">${rightArrow}</span></div>`
         : "";
 
-      const meta = cafe.address || cafe.area || "";
+      const meta = shortenAddr(cafe.address || cafe.area || "");
       const r = parseFloat(v.rating);
       const rating = isFinite(r)
-        ? `<div class="card-rating">${thumbIcon}<span>${r.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>` : "";
+        ? `<div class="card-rating"><span class="cr-left">${thumbIcon}<span>${r.toFixed(1)}</span></span><span class="cr-slash">/</span><span class="cr-right">5.0</span></div>` : "";
       // The "View on Instagram" button is always shown; if a visit has no post
       // link it falls back to the account.
       const igHref = v.ig || "https://www.instagram.com/thumbsup_coffee/";
@@ -590,7 +628,7 @@
       // Always clamped with a hidden button; adjustNote() reveals the button
       // only if the text is actually cut off.
       const noteHtml = note
-        ? `<div class="note-wrap"><p class="card-note clamped">${note}</p><button class="more-btn" onclick="event.stopPropagation();toggleNote(this)" hidden>Show more ▾</button></div>`
+        ? `<div class="note-wrap"><p class="card-note clamped">${note}</p><button class="more-btn" onclick="event.stopPropagation();toggleNote(this)" hidden>Read more ▾</button></div>`
         : "";
 
       return `
@@ -623,7 +661,7 @@
       const note = btn.parentElement.querySelector(".card-note");
       if (!note) return;
       const clamped = note.classList.toggle("clamped");
-      btn.textContent = clamped ? "Show more ▾" : "Show less ▴";
+      btn.textContent = clamped ? "Read more ▾" : "Read less ▴";
     };
     // Show the "Show more" button only when the note is actually truncated.
     function adjustNote(root) {
@@ -663,13 +701,18 @@
           const pt = map.project(m.getLatLng(), targetZoom);
           const popupH = (e.popup._container && e.popup._container.offsetHeight) || 280;
           pt.y -= popupH / 2;
+          autoPanning = true; // our own zoom shouldn't close the card
           map.setView(map.unproject(pt, targetZoom), targetZoom, { animate: true });
+          setTimeout(() => { autoPanning = false; }, 500);
         });
         markerLayer.addLayer(m);
         bounds.push([cafe.lat, cafe.lng]);
       });
       if (bounds.length === 1) map.setView(bounds[0], 16);
       else if (bounds.length) map.fitBounds(bounds, { padding: [60, 60] });
+      // Size addresses to the largest uniform font that keeps them one-line.
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitMetaFont(cafes));
+      else fitMetaFont(cafes);
     }
 
     // ---- tiny CSV parser (handles quoted fields, commas, newlines) ----
