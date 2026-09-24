@@ -386,8 +386,14 @@
     //   3. Paste that URL between the quotes below.
     // Until this is filled in, the map shows the SAMPLE data further down.
     // ===============================================================
+    // When viewed locally (localhost / 127.0.0.1) read the local data-cafes.csv
+    // so you can preview all pins + photos without waiting on a deploy. On the
+    // live site it reads the Google Sheet.
+    const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
     const CONFIG = {
-      sheetCsvUrl: "https://docs.google.com/spreadsheets/d/e/2PACX-1vSQW6l4tPHp5Fp9p8XGuXx1-PTiPY9qC73i8ftUIlcuLzdPKPC35XFxsLgx2eSqwctwlXtf9ilufB3a/pub?gid=445751395&single=true&output=csv",
+      sheetCsvUrl: LOCAL
+        ? "data-cafes.csv"
+        : "https://docs.google.com/spreadsheets/d/e/2PACX-1vSQW6l4tPHp5Fp9p8XGuXx1-PTiPY9qC73i8ftUIlcuLzdPKPC35XFxsLgx2eSqwctwlXtf9ilufB3a/pub?gid=445751395&single=true&output=csv",
 
       // MapTiler basemap key (free at maptiler.com → Account → Keys).
       // IMPORTANT: restrict the key to your domains in the MapTiler dashboard
@@ -556,11 +562,12 @@
       return mon + " " + parseInt(p[2], 10) + ", " + p[0];
     }
 
-    // Trim redundant parts (country, county) so addresses are shorter/cleaner.
+    // Trim to street + area (drop country, county, and anything past the 2nd
+    // part) so addresses stay short and readable on one line.
     function shortenAddr(s) {
-      return String(s || "").split(",").map((x) => x.trim())
-        .filter((x) => x && !/^(south korea|united states|usa|u\.?s\.?a?\.?)$/i.test(x) && !/ county$/i.test(x))
-        .join(", ");
+      const parts = String(s || "").split(",").map((x) => x.trim())
+        .filter((x) => x && !/^(south korea|united states|usa|u\.?s\.?a?\.?)$/i.test(x) && !/ county$/i.test(x));
+      return parts.slice(0, 2).join(", ");
     }
 
     // Pick the largest single font size at which every address fits on one line.
@@ -580,7 +587,7 @@
         if (w > 0) size = Math.min(size, ref * avail / w);
       });
       document.body.removeChild(span);
-      size = Math.max(8, Math.min(13, size));
+      size = Math.max(11, Math.min(13, size)); // keep it readable
       document.documentElement.style.setProperty("--meta-size", size.toFixed(1) + "px");
     }
 
