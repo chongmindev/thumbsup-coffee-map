@@ -133,7 +133,7 @@
       overflow: hidden;
       box-shadow: 0 12px 30px rgba(34, 26, 20, 0.25);
     }
-    .leaflet-popup-content { margin: 0; width: 232px !important; }
+    .leaflet-popup-content { margin: 0; width: 280px !important; }
     .leaflet-popup-tip { box-shadow: 0 12px 30px rgba(34, 26, 20, 0.15); }
 
     /* Square, to match an Instagram post. */
@@ -148,20 +148,21 @@
     }
     .card-photo svg { width: 44px; height: 44px; }
     .card-body {
-      padding: 14px 16px 16px;
+      padding: 14px 18px 16px;
       text-align: center;
     }
+    /* Consistent 12px rhythm between the stacked sections. */
     .card-name {
       font-size: 16px;
       font-weight: 700;
       color: var(--espresso);
-      margin: 0 0 3px;
+      margin: 0 0 4px;
     }
     .card-meta {
       font-size: 12px;
       color: #8a7a6c;
       line-height: 1.35;
-      margin: 0 0 10px;
+      margin: 0 0 12px;
     }
     .card-rating {
       display: flex;
@@ -171,11 +172,11 @@
       font-size: 14px;
       font-weight: 700;
       color: var(--espresso);
-      margin: 0 0 8px;
+      margin: 0 0 12px;
     }
     .card-rating svg { width: 15px; height: 15px; }
     .card-rating-max { color: #b0a294; font-weight: 600; }
-    .card-drink-row { text-align: center; margin: 0 0 10px; }
+    .card-drink-row { text-align: center; margin: 0 0 12px; }
     .card-drink {
       display: inline-flex;
       align-items: center;
@@ -190,10 +191,26 @@
       font-size: 12.5px;
       color: #5c4f45;
       line-height: 1.5;
-      margin: 0 0 14px;
-      max-height: 150px;
-      overflow: auto;
+      margin: 0 0 12px;
       text-align: left;
+    }
+    .card-note.clamped {
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin: 0;
+    }
+    .note-wrap { margin: 0 0 12px; }
+    .more-btn {
+      background: none;
+      border: none;
+      padding: 4px 0 0;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--espresso);
+      cursor: pointer;
     }
     /* visit tabs (one per review, newest first) */
     .card-tabs {
@@ -201,7 +218,7 @@
       flex-wrap: wrap;
       justify-content: center;
       gap: 6px;
-      margin: 0 0 10px;
+      margin: 0 0 12px;
     }
     .card-tab {
       font-family: inherit;
@@ -457,11 +474,25 @@
         ? `<div class="card-rating">${thumbIcon}<span>${r.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>` : "";
       const tabs = cafe.visits.length > 1
         ? `<div class="card-tabs">` + cafe.visits.map((vv, j) =>
-            `<button class="card-tab${j === i ? " active" : ""}" onclick="showVisit('${cafe._id}',${j})">${fmtDate(vv.date)}</button>`
+            `<button class="card-tab${j === i ? " active" : ""}" onclick="event.stopPropagation();showVisit('${cafe._id}',${j})">${fmtDate(vv.date)}</button>`
           ).join("") + `</div>`
         : "";
       const igBtn = v.ig
         ? `<a class="ig-btn" href="${v.ig}" target="_blank" rel="noopener">${igIcon} View on Instagram</a>` : "";
+
+      // The drink shows as its own chip, so strip it from the note when it's
+      // repeated at the start (avoids double-counting the coffee name).
+      let note = (v.note || "").trim();
+      const d = (v.drink || "").trim();
+      if (d && note.toLowerCase().indexOf(d.toLowerCase()) === 0) {
+        note = note.slice(d.length).replace(/^[\s\-–—:·,.]+/, "").trim();
+      }
+      const noteHtml = note
+        ? (note.length > 130
+            ? `<div class="note-wrap"><p class="card-note clamped">${note}</p><button class="more-btn" onclick="event.stopPropagation();toggleNote(this)">더보기 ▾</button></div>`
+            : `<p class="card-note">${note}</p>`)
+        : "";
+
       return `
         ${photo}
         <div class="card-body">
@@ -470,7 +501,7 @@
           ${tabs}
           ${rating}
           ${v.drink ? `<div class="card-drink-row"><span class="card-drink">${v.drink}</span></div>` : ""}
-          ${v.note ? `<p class="card-note">${v.note}</p>` : ""}
+          ${noteHtml}
           ${igBtn}
         </div>`;
     }
@@ -479,6 +510,12 @@
       const cafe = CAFES_BY_ID[id];
       const el = document.getElementById(id);
       if (cafe && el) el.innerHTML = visitCard(cafe, i);
+    };
+    window.toggleNote = function (btn) {
+      const note = btn.parentElement.querySelector(".card-note");
+      if (!note) return;
+      const clamped = note.classList.toggle("clamped");
+      btn.textContent = clamped ? "더보기 ▾" : "접기 ▴";
     };
 
     function popupHtml(cafe) {
@@ -497,13 +534,14 @@
         if (!isFinite(cafe.lat) || !isFinite(cafe.lng)) return;
         const m = L.marker([cafe.lat, cafe.lng], { icon: makeIcon(cafe) });
         // We pan ourselves so the pin centers AND the whole popup stays on screen.
-        m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 260, autoPan: false });
+        m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 320, autoPan: false });
         m.on("popupopen", (e) => {
-          const z = map.getZoom();
-          const pt = map.project(m.getLatLng(), z);
-          const popupH = (e.popup._container && e.popup._container.offsetHeight) || 260;
+          // Zoom in (if not already close) and center so the whole card shows.
+          const targetZoom = Math.max(map.getZoom(), 17);
+          const pt = map.project(m.getLatLng(), targetZoom);
+          const popupH = (e.popup._container && e.popup._container.offsetHeight) || 280;
           pt.y -= popupH / 2;
-          map.panTo(map.unproject(pt, z), { animate: true });
+          map.setView(map.unproject(pt, targetZoom), targetZoom, { animate: true });
         });
         markerLayer.addLayer(m);
         bounds.push([cafe.lat, cafe.lng]);
