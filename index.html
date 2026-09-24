@@ -533,7 +533,7 @@
     function makeIcon(cafe) {
       const top = cafe.visits[0];
       const r = parseFloat(top.rating);
-      const rv = Number.isInteger(r) ? String(r) : r.toFixed(1); // "5" not "5.0"
+      const rv = r.toFixed(1); // always one decimal, e.g. "2.0", "5.0"
       const rating = isFinite(r)
         ? `<div class="pin-score" style="background:${ratingColor(r)}">${rv}</div>` : "";
       // Multiple posts here -> vertical stack of photo-rings peeking out below.
