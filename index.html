@@ -77,17 +77,6 @@
       box-sizing: border-box;
     }
     .pin-face svg { width: 24px; height: 24px; }
-    /* pointer under the circle */
-    .pin-tip {
-      position: absolute;
-      left: 50%;
-      bottom: -4px;
-      width: 14px;
-      height: 14px;
-      background: #fff;
-      transform: translateX(-50%) rotate(45deg);
-      z-index: -1;
-    }
     /* visit-count badge: solid accent circle on the top-right shoulder */
     .pin-count {
       position: absolute;
@@ -112,7 +101,7 @@
       position: absolute;
       top: 100%;
       left: 50%;
-      transform: translate(-50%, 6px);
+      transform: translate(-50%, -9px);
       display: flex;
       align-items: center;
       gap: 3px;
@@ -541,12 +530,11 @@
       return L.divIcon({
         className: "coffee-pin",
         iconSize: [50, 50],
-        iconAnchor: [25, 56], // point of the tip
-        popupAnchor: [0, -52],
+        iconAnchor: [25, 25], // center of the circle = the coordinate
+        popupAnchor: [0, -28],
         html: `
           <div class="pin-wrap">
             <div class="pin-ring">${face}</div>
-            <div class="pin-tip"></div>
             ${count}${rating}
           </div>`
       });
