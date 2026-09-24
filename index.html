@@ -135,6 +135,27 @@
     }
     .leaflet-popup-content { margin: 0; width: 280px !important; }
     .leaflet-popup-tip { box-shadow: 0 12px 30px rgba(34, 26, 20, 0.15); }
+    /* close button: white × on a dark circle so it's visible over photos */
+    .leaflet-popup-close-button {
+      top: 8px !important;
+      right: 8px !important;
+      width: 26px !important;
+      height: 26px !important;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      padding: 0 !important;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.45) !important;
+      color: #fff !important;
+      font-size: 20px !important;
+      font-weight: 700;
+      line-height: 1 !important;
+    }
+    .leaflet-popup-close-button:hover {
+      background: rgba(0, 0, 0, 0.65) !important;
+      color: #fff !important;
+    }
 
     /* Square, to match an Instagram post. */
     .card-photo {
