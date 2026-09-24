@@ -552,12 +552,18 @@
       const photo = `<div class="card-photo-wrap">${photoInner}${photoNav}</div>`;
 
       // --- visit pager (multiple posts at this location) ---
-      const visitNav = cafe.visits.length > 1 ? `
-        <div class="visit-nav">
-          <button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i - 1})">‹</button>
-          <span class="vn-label">${fmtDate(v.date)} · ${i + 1}/${cafe.visits.length}</span>
-          <button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i + 1})">›</button>
-        </div>` : "";
+      // Newest first. Right arrow goes to an older post, left arrow back to a
+      // newer one — each shown only when a post exists in that direction.
+      const last = cafe.visits.length - 1;
+      const leftArrow = i > 0
+        ? `<button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i - 1})">‹</button>`
+        : "";
+      const rightArrow = i < last
+        ? `<button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i + 1})">›</button>`
+        : "";
+      const visitNav = cafe.visits.length > 1
+        ? `<div class="visit-nav">${leftArrow}<span class="vn-label">${fmtDate(v.date)}</span>${rightArrow}</div>`
+        : "";
 
       const meta = cafe.address || cafe.area || "";
       const r = parseFloat(v.rating);
@@ -598,8 +604,7 @@
       const cafe = CAFES_BY_ID[id];
       const el = document.getElementById(id);
       if (!cafe || !el) return;
-      const n = cafe.visits.length;
-      i = ((i % n) + n) % n; // wrap around
+      i = Math.max(0, Math.min(cafe.visits.length - 1, i)); // clamp, no wrap
       el.innerHTML = visitCard(cafe, i, 0);
       adjustNote(el);
     };
