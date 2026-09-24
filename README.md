@@ -16,7 +16,9 @@ An embeddable map of coffee shops, one pin per Instagram review.
 
 **Each new pin** — you only fill two columns:
 
-1. `map_link` — a Google Maps "Share" link for the cafe
+1. `map_link` — a Google Maps "Share" link, **or** paste coordinates directly
+   (`37.5117, 127.0592`). For pop-ups / places without a clean listing, right-click
+   the exact spot in Google Maps to get the coordinates and paste those.
 2. `ig` — the Instagram post URL
 
 Then run the sheet menu: **Thumbs Up Coffee → Fill details for new rows**. That

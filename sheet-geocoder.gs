@@ -106,6 +106,12 @@ function firstIndex_(header, names) {
 
 function coordsFromMapUrl_(url) {
   url = String(url || '').trim();
+
+  // Bare coordinates pasted directly, e.g. "37.5117, 127.0592" — the most
+  // reliable option for places whose share link hides the coordinates.
+  var bare = url.match(/^\(?\s*(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)\s*\)?$/);
+  if (bare) return valid_(bare[1], bare[2]);
+
   if (!/^https?:\/\//i.test(url)) return null;
   var hit = parseCoords_(url);
   if (hit) return hit;
