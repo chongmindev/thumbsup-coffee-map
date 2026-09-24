@@ -197,6 +197,14 @@
       box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
     }
     .ph-dot.on { background: #fff; }
+    .ph-count {
+      position: absolute;
+      right: 8px; bottom: 8px;
+      background: rgba(0, 0, 0, 0.55);
+      color: #fff;
+      font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 999px;
+    }
     /* visit pager (multiple posts at one location) */
     .visit-nav {
       display: flex; align-items: center; justify-content: center;
@@ -212,6 +220,8 @@
       display: flex; align-items: center; justify-content: center;
     }
     .vn-arrow:hover { background: var(--cream); }
+    .vn-arrow:disabled { opacity: 0.3; cursor: default; }
+    .vn-arrow:disabled:hover { background: #fff; }
     /* fixed-width side slots keep the date centered even with one arrow */
     .vn-side { width: 24px; flex: none; display: flex; justify-content: center; }
     .vn-label { font-size: 12px; font-weight: 700; color: var(--espresso); }
@@ -590,19 +600,18 @@
       const photoNav = n > 1 ? `
         <button class="ph-arrow ph-prev" onclick="event.stopPropagation();showPhoto('${cid}',${i},${p - 1})">‹</button>
         <button class="ph-arrow ph-next" onclick="event.stopPropagation();showPhoto('${cid}',${i},${p + 1})">›</button>
-        <div class="ph-dots">${photos.map((_, k) => `<span class="ph-dot${k === p ? " on" : ""}"></span>`).join("")}</div>` : "";
+        <div class="ph-count">${p + 1}/${n}</div>` : "";
       const photo = `<div class="card-photo-wrap">${photoInner}${photoNav}</div>`;
 
       // --- visit pager (multiple posts at this location) ---
-      // Newest first. Right arrow goes to an older post, left arrow back to a
-      // newer one — each shown only when a post exists in that direction.
+      // Newest first. Both arrows show for balance; the one with no post in that
+      // direction is dimmed and not clickable. Right = older, left = newer.
       const last = cafe.visits.length - 1;
-      const leftArrow = i > 0
-        ? `<button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i - 1})">‹</button>`
-        : "";
-      const rightArrow = i < last
-        ? `<button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i + 1})">›</button>`
-        : "";
+      const multi = cafe.visits.length > 1;
+      const mkArrow = (glyph, target, enabled) =>
+        `<button class="vn-arrow"${enabled ? ` onclick="event.stopPropagation();showVisit('${cid}',${target})"` : " disabled"}>${glyph}</button>`;
+      const leftArrow = multi ? mkArrow("‹", i - 1, i > 0) : "";
+      const rightArrow = multi ? mkArrow("›", i + 1, i < last) : "";
       // Always show the date (even for a single visit); arrows only when there
       // is a post in that direction.
       const visitNav = v.date
