@@ -88,46 +88,44 @@
       transform: translateX(-50%) rotate(45deg);
       z-index: -1;
     }
-    /* visit-count badge (top-left): shows how many reviews this cafe has */
+    /* visit-count badge: solid accent circle on the top-right shoulder */
     .pin-count {
       position: absolute;
-      top: -6px;
-      left: -6px;
-      min-width: 20px;
-      height: 20px;
-      padding: 0 5px;
-      border-radius: 10px;
-      background: #fff;
-      color: var(--espresso);
-      font-size: 11px;
+      top: -5px;
+      right: -5px;
+      min-width: 18px;
+      height: 18px;
+      padding: 0 4px;
+      border-radius: 9px;
+      background: var(--espresso);
+      color: #fff;
+      font-size: 10px;
       font-weight: 800;
-      border: 2px solid var(--espresso);
+      border: 2px solid #fff;
       box-sizing: border-box;
       display: flex;
       align-items: center;
       justify-content: center;
     }
-    /* rating badge */
-    .pin-badge {
+    /* rating: white pill under the pin (the quality label) */
+    .pin-rating {
       position: absolute;
-      top: -6px;
-      right: -6px;
-      min-width: 20px;
-      height: 20px;
-      padding: 0 6px;
-      border-radius: 10px;
-      background: var(--espresso);
-      color: #fff;
-      font-size: 11px;
-      font-weight: 700;
-      border: 2px solid #fff;
-      box-sizing: content-box;
+      top: 100%;
+      left: 50%;
+      transform: translate(-50%, 6px);
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 3px;
+      background: #fff;
+      color: var(--espresso);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+      box-shadow: 0 2px 6px rgba(59, 42, 32, 0.3);
     }
-    .pin-badge svg { width: 10px; height: 10px; flex: none; }
+    .pin-rating svg { width: 11px; height: 11px; flex: none; }
 
     /* ---- Popup card ---- */
     .leaflet-popup-content-wrapper {
@@ -535,7 +533,9 @@
         ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
         : `<div class="pin-face">${cupIconCentered}</div>`;
       const r = parseFloat(top.rating);
-      const badge = isFinite(r) ? `<div class="pin-badge">${thumbIcon}${r.toFixed(1)}</div>` : "";
+      const rv = Number.isInteger(r) ? String(r) : r.toFixed(1); // "5" not "5.0"
+      // Rating = quality label UNDER the pin; count = accent badge on the shoulder.
+      const rating = isFinite(r) ? `<div class="pin-rating">${thumbIcon}${rv}</div>` : "";
       const count = cafe.visits.length > 1
         ? `<div class="pin-count">${cafe.visits.length}</div>` : "";
       return L.divIcon({
@@ -547,7 +547,7 @@
           <div class="pin-wrap">
             <div class="pin-ring">${face}</div>
             <div class="pin-tip"></div>
-            ${badge}${count}
+            ${count}${rating}
           </div>`
       });
     }
