@@ -114,17 +114,20 @@
       right: -6px;
       min-width: 20px;
       height: 20px;
-      padding: 0 5px;
+      padding: 0 6px;
       border-radius: 10px;
       background: var(--espresso);
       color: #fff;
       font-size: 11px;
       font-weight: 700;
-      line-height: 20px;
-      text-align: center;
       border: 2px solid #fff;
       box-sizing: content-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
     }
+    .pin-badge svg { width: 10px; height: 10px; flex: none; }
 
     /* ---- Popup card ---- */
     .leaflet-popup-content-wrapper {
@@ -532,7 +535,7 @@
         ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
         : `<div class="pin-face">${cupIconCentered}</div>`;
       const r = parseFloat(top.rating);
-      const badge = isFinite(r) ? `<div class="pin-badge">${r.toFixed(1)}</div>` : "";
+      const badge = isFinite(r) ? `<div class="pin-badge">${thumbIcon}${r.toFixed(1)}</div>` : "";
       const count = cafe.visits.length > 1
         ? `<div class="pin-count">${cafe.visits.length}</div>` : "";
       return L.divIcon({
