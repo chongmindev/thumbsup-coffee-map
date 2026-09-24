@@ -77,6 +77,19 @@
       box-sizing: border-box;
     }
     .pin-face svg { width: 24px; height: 24px; }
+    /* offset stack (peeks out behind the pin) for locations with 2+ posts */
+    .pin-stack {
+      position: absolute;
+      top: 0; left: 0;
+      width: 50px; height: 50px;
+      border-radius: 50%;
+      background: #fff;
+      border: 2px solid #fff;
+      box-sizing: border-box;
+      box-shadow: inset 0 0 0 1px rgba(59, 42, 32, 0.10);
+    }
+    .pin-stack.s1 { transform: translate(4px, 5px); z-index: -1; }
+    .pin-stack.s2 { transform: translate(8px, 10px); z-index: -2; }
     /* rating badge on the top-right shoulder, colored by score */
     .pin-score {
       position: absolute;
@@ -513,6 +526,11 @@
       const rv = Number.isInteger(r) ? String(r) : r.toFixed(1); // "5" not "5.0"
       const rating = isFinite(r)
         ? `<div class="pin-score" style="background:${ratingColor(r)}">${rv}</div>` : "";
+      // Multiple posts here -> offset "stack" of circles peeking out behind.
+      const nv = cafe.visits.length;
+      const stack = nv > 1
+        ? `<div class="pin-stack s1"></div>` + (nv > 2 ? `<div class="pin-stack s2"></div>` : "")
+        : "";
       return L.divIcon({
         className: "coffee-pin",
         iconSize: [50, 50],
@@ -520,6 +538,7 @@
         popupAnchor: [0, -28],
         html: `
           <div class="pin-wrap">
+            ${stack}
             <div class="pin-ring">${face}</div>
             ${rating}
           </div>`
