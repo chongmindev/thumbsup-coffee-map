@@ -77,19 +77,14 @@
       box-sizing: border-box;
     }
     .pin-face svg { width: 24px; height: 24px; }
-    /* offset stack (peeks out behind the pin) for locations with 2+ posts */
+    /* vertical stack of photo-rings peeking out below (2+ posts) */
     .pin-stack {
       position: absolute;
       top: 0; left: 0;
       width: 50px; height: 50px;
-      border-radius: 50%;
-      background: #fff;
-      border: 2px solid #fff;
-      box-sizing: border-box;
-      box-shadow: inset 0 0 0 1px rgba(59, 42, 32, 0.10);
     }
-    .pin-stack.s1 { transform: translate(4px, 5px); z-index: -1; }
-    .pin-stack.s2 { transform: translate(8px, 10px); z-index: -2; }
+    .pin-stack.s1 { transform: translateY(8px); z-index: -1; }
+    .pin-stack.s2 { transform: translateY(15px); z-index: -2; }
     /* rating badge on the top-right shoulder, colored by score */
     .pin-score {
       position: absolute;
@@ -415,8 +410,14 @@
 
     // ---- map ----
     // Zoom control on the right so it doesn't sit under the title chip.
-    const map = L.map("map", { zoomControl: false, scrollWheelZoom: true })
-      .setView([37.5263529, 127.0306863], 16);
+    // Bigger zoom steps: each +/- click jumps 2 levels and the wheel zooms faster.
+    const map = L.map("map", {
+      zoomControl: false,
+      scrollWheelZoom: true,
+      zoomSnap: 1,
+      zoomDelta: 2,
+      wheelPxPerZoomLevel: 40
+    }).setView([37.5263529, 127.0306863], 16);
     L.control.zoom({ position: "topright" }).addTo(map);
 
     // A user zoom (scroll or buttons) closes the open card. The programmatic
@@ -507,41 +508,45 @@
       return String(v.thumb || "").split("|").map((s) => imageUrl(s)).filter(Boolean);
     }
 
-    // Score → earthy green / amber / terracotta (green-yellow-red, coffee-toned).
+    // Score → green / amber / red (four steps for a bit more nuance).
     function ratingColor(r) {
-      if (r >= 4) return "#4f8a5b";   // good — muted green
-      if (r >= 3) return "#cf9a34";   // ok — warm amber
-      return "#c0563f";               // low — terracotta red
+      if (r >= 4.5) return "#2e9e54"; // excellent — green
+      if (r >= 4.0) return "#7bbf46"; // great — lime green
+      if (r >= 3.0) return "#e6a52e"; // ok — amber
+      return "#db5540";               // low — red
+    }
+
+    // Pin photo uses the tiny thumbnail (images/thumb/...) so pins load fast.
+    function pinPhoto(v) {
+      const cover = photosOf(v)[0] || "";
+      return cover.indexOf("images/") === 0 ? cover.replace("images/", "images/thumb/") : cover;
+    }
+    // One photo circle with the gradient ("rainbow") outline.
+    function pinRing(v) {
+      const img = pinPhoto(v);
+      const face = img
+        ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
+        : `<div class="pin-face">${cupIconCentered}</div>`;
+      return `<div class="pin-ring">${face}</div>`;
     }
 
     function makeIcon(cafe) {
       const top = cafe.visits[0];
-      // Pins use a tiny thumbnail (images/thumb/...) so they load fast.
-      const cover = photosOf(top)[0] || "";
-      const img = cover.indexOf("images/") === 0 ? cover.replace("images/", "images/thumb/") : cover;
-      const face = img
-        ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
-        : `<div class="pin-face">${cupIconCentered}</div>`;
       const r = parseFloat(top.rating);
       const rv = Number.isInteger(r) ? String(r) : r.toFixed(1); // "5" not "5.0"
       const rating = isFinite(r)
         ? `<div class="pin-score" style="background:${ratingColor(r)}">${rv}</div>` : "";
-      // Multiple posts here -> offset "stack" of circles peeking out behind.
+      // Multiple posts here -> vertical stack of photo-rings peeking out below.
       const nv = cafe.visits.length;
-      const stack = nv > 1
-        ? `<div class="pin-stack s1"></div>` + (nv > 2 ? `<div class="pin-stack s2"></div>` : "")
-        : "";
+      let stack = "";
+      if (nv > 2) stack += `<div class="pin-stack s2">${pinRing(cafe.visits[2])}</div>`;
+      if (nv > 1) stack += `<div class="pin-stack s1">${pinRing(cafe.visits[1])}</div>`;
       return L.divIcon({
         className: "coffee-pin",
         iconSize: [50, 50],
         iconAnchor: [25, 25], // center of the circle = the coordinate
         popupAnchor: [0, -28],
-        html: `
-          <div class="pin-wrap">
-            ${stack}
-            <div class="pin-ring">${face}</div>
-            ${rating}
-          </div>`
+        html: `<div class="pin-wrap">${stack}${pinRing(top)}${rating}</div>`
       });
     }
 
