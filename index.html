@@ -415,8 +415,8 @@
       zoomControl: false,
       scrollWheelZoom: true,
       zoomSnap: 1,
-      zoomDelta: 2,
-      wheelPxPerZoomLevel: 40
+      zoomDelta: 3,
+      wheelPxPerZoomLevel: 25
     }).setView([37.5263529, 127.0306863], 16);
     L.control.zoom({ position: "topright" }).addTo(map);
 
@@ -512,7 +512,7 @@
     function ratingColor(r) {
       if (r >= 4.5) return "#2e9e54"; // excellent — green
       if (r >= 4.0) return "#7bbf46"; // great — lime green
-      if (r >= 3.0) return "#e6a52e"; // ok — amber
+      if (r >= 3.0) return "#f2b83e"; // ok — amber
       return "#db5540";               // low — red
     }
 
