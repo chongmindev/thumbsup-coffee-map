@@ -245,20 +245,18 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    /* rating centered on the "/" so 4.5 and 5 balance around the middle */
+    /* rating: whole "4.5 / 5.0" centered as one block */
     .card-rating {
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
+      display: flex;
+      justify-content: center;
+      align-items: baseline;
+      gap: 4px;
       font-size: 14px;
       font-weight: 700;
       color: var(--espresso);
       margin: 0 0 12px;
     }
-    .cr-left { justify-self: end; display: inline-flex; align-items: center; gap: 5px; }
-    .cr-slash { padding: 0 5px; color: #b0a294; font-weight: 600; }
-    .cr-right { justify-self: start; color: #b0a294; font-weight: 600; }
-    .card-rating svg { width: 15px; height: 15px; }
+    .cr-max { color: #b0a294; font-weight: 600; }
     .card-drink-row { text-align: center; margin: 0 0 12px; }
     .card-drink {
       display: inline-flex;
@@ -628,7 +626,7 @@
       const meta = shortenAddr(cafe.address || cafe.area || "");
       const r = parseFloat(v.rating);
       const rating = isFinite(r)
-        ? `<div class="card-rating"><span class="cr-left">${thumbIcon}<span>${r.toFixed(1)}</span></span><span class="cr-slash">/</span><span class="cr-right">5.0</span></div>` : "";
+        ? `<div class="card-rating">${r.toFixed(1)} <span class="cr-max">/ 5.0</span></div>` : "";
       // The "View on Instagram" button is always shown; if a visit has no post
       // link it falls back to the account.
       const igHref = v.ig || "https://www.instagram.com/thumbsup_coffee/";
