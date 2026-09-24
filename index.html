@@ -147,6 +147,51 @@
       border-bottom: 1px solid #efe6db;
     }
     .card-photo svg { width: 44px; height: 44px; }
+    /* photo carousel */
+    .card-photo-wrap { position: relative; }
+    .ph-arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 30px; height: 30px;
+      border: none; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85);
+      color: var(--espresso);
+      font-size: 18px; line-height: 1;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+    .ph-arrow:hover { background: #fff; }
+    .ph-prev { left: 8px; }
+    .ph-next { right: 8px; }
+    .ph-dots {
+      position: absolute;
+      left: 0; right: 0; bottom: 8px;
+      display: flex; justify-content: center; gap: 5px;
+    }
+    .ph-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255, 255, 255, 0.6);
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
+    }
+    .ph-dot.on { background: #fff; }
+    /* visit pager (multiple posts at one location) */
+    .visit-nav {
+      display: flex; align-items: center; justify-content: center;
+      gap: 12px;
+      margin: 0 0 12px;
+    }
+    .vn-arrow {
+      width: 24px; height: 24px;
+      border: 1px solid #e6dccf; border-radius: 50%;
+      background: #fff; color: var(--espresso);
+      font-size: 15px; line-height: 1; cursor: pointer;
+      font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .vn-arrow:hover { background: var(--cream); }
+    .vn-label { font-size: 12px; font-weight: 700; color: var(--espresso); }
     .card-body {
       padding: 14px 18px 16px;
       text-align: center;
@@ -331,14 +376,14 @@
         lat: 37.5263529, lng: 127.0306863, date: "2026-09-05",
         rating: "4.5", drink: "Cafe Latte Ristretto - Hot",
         note: "Warm, nutty, great mouthfeel and somehow tastes better because I know the guy behind the drink. It's as I remembered it from before my US trip. Awesome latte.",
-        thumb: "images/cafe-marie-2026-09-05.jpg",
+        thumb: "images/cafe-marie-2026-09-05-1.jpg | images/cafe-marie-2026-09-05-2.jpg",
         ig: "https://www.instagram.com/p/Dc5imVFGaBg/" },
       { name: "Cafe Marie", area: "Apgujeong, Gangnam-gu",
         address: "45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul",
         lat: 37.5263529, lng: 127.0306863, date: "2026-05-03",
         rating: "4.5", drink: "Cafe Latte Ristretto (Medium)",
         note: "Very toasty, sweet, and super clean with no bitter aftertaste. One of the best lattes I've had in a while. Really soothing on a rainy day. The owner is passionate about his craft and roasts his own blends daily.",
-        thumb: "images/cafe-marie-2026-05-03.jpg",
+        thumb: "images/cafe-marie-2026-05-03-1.jpg | images/cafe-marie-2026-05-03-2.jpg | images/cafe-marie-2026-05-03-3.jpg | images/cafe-marie-2026-05-03-4.jpg | images/cafe-marie-2026-05-03-5.jpg | images/cafe-marie-2026-05-03-6.jpg | images/cafe-marie-2026-05-03-7.jpg",
         ig: "" }
     ];
 
@@ -426,9 +471,14 @@
       return cafes;
     }
 
+    // A visit's photos: `thumb` may hold several images separated by "|".
+    function photosOf(v) {
+      return String(v.thumb || "").split("|").map((s) => imageUrl(s)).filter(Boolean);
+    }
+
     function makeIcon(cafe) {
       const top = cafe.visits[0];
-      const img = imageUrl(top.thumb);
+      const img = photosOf(top)[0] || "";
       const face = img
         ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
         : `<div class="pin-face">${cupIconCentered}</div>`;
@@ -461,22 +511,37 @@
       return mon + " " + parseInt(p[2], 10) + ", " + p[0];
     }
 
-    // One visit's card content (photo + tabs + details), for cafe.visits[i].
-    function visitCard(cafe, i) {
+    // One visit's card content, for cafe.visits[i] showing photo p.
+    function visitCard(cafe, i, p) {
       const v = cafe.visits[i];
-      const img = imageUrl(v.thumb);
-      const photo = img
-        ? `<div class="card-photo" style="background-image:url('${img}')"></div>`
+      const cid = cafe._id;
+
+      // --- photo carousel (multiple photos from the post) ---
+      const photos = photosOf(v);
+      const n = photos.length;
+      p = n ? (((p || 0) % n) + n) % n : 0;
+      const cur = n ? photos[p] : "";
+      const photoInner = cur
+        ? `<div class="card-photo" style="background-image:url('${cur}')"></div>`
         : `<div class="card-photo">${cupIcon}</div>`;
+      const photoNav = n > 1 ? `
+        <button class="ph-arrow ph-prev" onclick="event.stopPropagation();showPhoto('${cid}',${i},${p - 1})">‹</button>
+        <button class="ph-arrow ph-next" onclick="event.stopPropagation();showPhoto('${cid}',${i},${p + 1})">›</button>
+        <div class="ph-dots">${photos.map((_, k) => `<span class="ph-dot${k === p ? " on" : ""}"></span>`).join("")}</div>` : "";
+      const photo = `<div class="card-photo-wrap">${photoInner}${photoNav}</div>`;
+
+      // --- visit pager (multiple posts at this location) ---
+      const visitNav = cafe.visits.length > 1 ? `
+        <div class="visit-nav">
+          <button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i - 1})">‹</button>
+          <span class="vn-label">${fmtDate(v.date)} · ${i + 1}/${cafe.visits.length}</span>
+          <button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i + 1})">›</button>
+        </div>` : "";
+
       const meta = cafe.address || cafe.area || "";
       const r = parseFloat(v.rating);
       const rating = isFinite(r)
         ? `<div class="card-rating">${thumbIcon}<span>${r.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>` : "";
-      const tabs = cafe.visits.length > 1
-        ? `<div class="card-tabs">` + cafe.visits.map((vv, j) =>
-            `<button class="card-tab${j === i ? " active" : ""}" onclick="event.stopPropagation();showVisit('${cafe._id}',${j})">${fmtDate(vv.date)}</button>`
-          ).join("") + `</div>`
-        : "";
       const igBtn = v.ig
         ? `<a class="ig-btn" href="${v.ig}" target="_blank" rel="noopener">${igIcon} View on Instagram</a>` : "";
 
@@ -498,7 +563,7 @@
         <div class="card-body">
           <p class="card-name">${cafe.name}</p>
           ${meta ? `<p class="card-meta">${meta}</p>` : ""}
-          ${tabs}
+          ${visitNav}
           ${rating}
           ${v.drink ? `<div class="card-drink-row"><span class="card-drink">${v.drink}</span></div>` : ""}
           ${noteHtml}
@@ -509,7 +574,15 @@
     window.showVisit = function (id, i) {
       const cafe = CAFES_BY_ID[id];
       const el = document.getElementById(id);
-      if (cafe && el) el.innerHTML = visitCard(cafe, i);
+      if (!cafe || !el) return;
+      const n = cafe.visits.length;
+      i = ((i % n) + n) % n; // wrap around
+      el.innerHTML = visitCard(cafe, i, 0);
+    };
+    window.showPhoto = function (id, i, p) {
+      const cafe = CAFES_BY_ID[id];
+      const el = document.getElementById(id);
+      if (cafe && el) el.innerHTML = visitCard(cafe, i, p);
     };
     window.toggleNote = function (btn) {
       const note = btn.parentElement.querySelector(".card-note");
@@ -521,7 +594,7 @@
     function popupHtml(cafe) {
       cafe._id = "cafe-" + (++cafeSeq);
       CAFES_BY_ID[cafe._id] = cafe;
-      return `<div class="cafe-card" id="${cafe._id}">${visitCard(cafe, 0)}</div>`;
+      return `<div class="cafe-card" id="${cafe._id}">${visitCard(cafe, 0, 0)}</div>`;
     }
 
     // ---- render markers ----
