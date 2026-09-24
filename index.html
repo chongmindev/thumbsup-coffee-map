@@ -258,7 +258,7 @@
       color: #5c4f45;
       line-height: 1.5;
       margin: 0 0 12px;
-      text-align: left;
+      text-align: center;
     }
     .card-note.clamped {
       display: -webkit-box;
@@ -499,7 +499,9 @@
 
     function makeIcon(cafe) {
       const top = cafe.visits[0];
-      const img = photosOf(top)[0] || "";
+      // Pins use a tiny thumbnail (images/thumb/...) so they load fast.
+      const cover = photosOf(top)[0] || "";
+      const img = cover.indexOf("images/") === 0 ? cover.replace("images/", "images/thumb/") : cover;
       const face = img
         ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
         : `<div class="pin-face">${cupIconCentered}</div>`;
@@ -561,7 +563,9 @@
       const rightArrow = i < last
         ? `<button class="vn-arrow" onclick="event.stopPropagation();showVisit('${cid}',${i + 1})">›</button>`
         : "";
-      const visitNav = cafe.visits.length > 1
+      // Always show the date (even for a single visit); arrows only when there
+      // is a post in that direction.
+      const visitNav = v.date
         ? `<div class="visit-nav">${leftArrow}<span class="vn-label">${fmtDate(v.date)}</span>${rightArrow}</div>`
         : "";
 
