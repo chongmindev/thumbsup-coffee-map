@@ -88,6 +88,25 @@
       transform: translateX(-50%) rotate(45deg);
       z-index: -1;
     }
+    /* visit-count badge (top-left): shows how many reviews this cafe has */
+    .pin-count {
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      min-width: 20px;
+      height: 20px;
+      padding: 0 5px;
+      border-radius: 10px;
+      background: #fff;
+      color: var(--espresso);
+      font-size: 11px;
+      font-weight: 800;
+      border: 2px solid var(--espresso);
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
     /* rating badge */
     .pin-badge {
       position: absolute;
@@ -172,6 +191,33 @@
       color: #5c4f45;
       line-height: 1.5;
       margin: 0 0 14px;
+      max-height: 150px;
+      overflow: auto;
+      text-align: left;
+    }
+    /* visit tabs (one per review, newest first) */
+    .card-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+      margin: 0 0 10px;
+    }
+    .card-tab {
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid #e6dccf;
+      background: #fff;
+      color: #8a7a6c;
+      cursor: pointer;
+    }
+    .card-tab.active {
+      background: var(--espresso);
+      color: #fff;
+      border-color: var(--espresso);
     }
     .ig-btn {
       display: flex;
@@ -265,11 +311,18 @@
     const SAMPLE_CAFES = [
       { name: "Cafe Marie", area: "Apgujeong, Gangnam-gu",
         address: "45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul",
-        lat: 37.5263529, lng: 127.0306863,
-        thumb: "images/cafe-marie.jpg",
-        rating: 4.5, drink: "Cafe Latte Ristretto · Hot",
+        lat: 37.5263529, lng: 127.0306863, date: "2026-09-05",
+        rating: "4.5", drink: "Cafe Latte Ristretto - Hot",
         note: "Warm, nutty, great mouthfeel and somehow tastes better because I know the guy behind the drink. It's as I remembered it from before my US trip. Awesome latte.",
-        ig: "https://www.instagram.com/p/Dc5imVFGaBg/" }
+        thumb: "images/cafe-marie-2026-09-05.jpg",
+        ig: "https://www.instagram.com/p/Dc5imVFGaBg/" },
+      { name: "Cafe Marie", area: "Apgujeong, Gangnam-gu",
+        address: "45 Apgujeong-ro 34-gil, Gangnam-gu, Seoul",
+        lat: 37.5263529, lng: 127.0306863, date: "2026-05-03",
+        rating: "4.5", drink: "Cafe Latte Ristretto (Medium)",
+        note: "Very toasty, sweet, and super clean with no bitter aftertaste. One of the best lattes I've had in a while. Really soothing on a rainy day. The owner is passionate about his craft and roasts his own blends daily.",
+        thumb: "images/cafe-marie-2026-05-03.jpg",
+        ig: "" }
     ];
 
     // ---- map ----
@@ -331,11 +384,41 @@
       return raw;
     }
 
+    // ---- group flat visit rows into cafes (one pin per cafe, many visits) ----
+    function groupCafes(rows) {
+      const byName = new Map();
+      rows.forEach((r) => {
+        const key = (r.name || "").trim().toLowerCase();
+        if (!key) return;
+        if (!byName.has(key)) byName.set(key, []);
+        byName.get(key).push(r);
+      });
+      const cafes = [];
+      byName.forEach((visits) => {
+        visits.sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))); // newest first
+        const loc = visits.find((v) => isFinite(v.lat) && isFinite(v.lng));
+        cafes.push({
+          name: visits[0].name,
+          area: visits[0].area,
+          address: visits[0].address,
+          lat: loc ? loc.lat : NaN,
+          lng: loc ? loc.lng : NaN,
+          visits: visits
+        });
+      });
+      return cafes;
+    }
+
     function makeIcon(cafe) {
-      const img = imageUrl(cafe.thumb);
+      const top = cafe.visits[0];
+      const img = imageUrl(top.thumb);
       const face = img
         ? `<div class="pin-face" style="background-image:url('${img}')"></div>`
         : `<div class="pin-face">${cupIconCentered}</div>`;
+      const r = parseFloat(top.rating);
+      const badge = isFinite(r) ? `<div class="pin-badge">${r.toFixed(1)}</div>` : "";
+      const count = cafe.visits.length > 1
+        ? `<div class="pin-count">${cafe.visits.length}</div>` : "";
       return L.divIcon({
         className: "coffee-pin",
         iconSize: [50, 50],
@@ -345,48 +428,80 @@
           <div class="pin-wrap">
             <div class="pin-ring">${face}</div>
             <div class="pin-tip"></div>
-            <div class="pin-badge">${cafe.rating.toFixed(1)}</div>
+            ${badge}${count}
           </div>`
       });
     }
 
-    function popupHtml(cafe) {
-      // Square photo spot (Instagram dimensions). Shows the post image when a
-      // `thumb` URL is set, otherwise a placeholder.
-      const img = imageUrl(cafe.thumb);
+    // Registry so tab clicks can look the cafe up and re-render the card.
+    const CAFES_BY_ID = {};
+    let cafeSeq = 0;
+
+    function fmtDate(d) {
+      const p = String(d || "").split("-");
+      if (p.length < 3) return d || "";
+      const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][parseInt(p[1], 10) - 1] || "";
+      return mon + " " + parseInt(p[2], 10) + ", " + p[0];
+    }
+
+    // One visit's card content (photo + tabs + details), for cafe.visits[i].
+    function visitCard(cafe, i) {
+      const v = cafe.visits[i];
+      const img = imageUrl(v.thumb);
       const photo = img
         ? `<div class="card-photo" style="background-image:url('${img}')"></div>`
         : `<div class="card-photo">${cupIcon}</div>`;
       const meta = cafe.address || cafe.area || "";
+      const r = parseFloat(v.rating);
+      const rating = isFinite(r)
+        ? `<div class="card-rating">${thumbIcon}<span>${r.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>` : "";
+      const tabs = cafe.visits.length > 1
+        ? `<div class="card-tabs">` + cafe.visits.map((vv, j) =>
+            `<button class="card-tab${j === i ? " active" : ""}" onclick="showVisit('${cafe._id}',${j})">${fmtDate(vv.date)}</button>`
+          ).join("") + `</div>`
+        : "";
+      const igBtn = v.ig
+        ? `<a class="ig-btn" href="${v.ig}" target="_blank" rel="noopener">${igIcon} View on Instagram</a>` : "";
       return `
         ${photo}
         <div class="card-body">
           <p class="card-name">${cafe.name}</p>
           ${meta ? `<p class="card-meta">${meta}</p>` : ""}
-          <div class="card-rating">${thumbIcon}<span>${cafe.rating.toFixed(1)} <span class="card-rating-max">/ 5</span></span></div>
-          ${cafe.drink ? `<div class="card-drink-row"><span class="card-drink">${cafe.drink}</span></div>` : ""}
-          ${cafe.note ? `<p class="card-note">${cafe.note}</p>` : ""}
-          <a class="ig-btn" href="${cafe.ig}" target="_blank" rel="noopener">${igIcon} View on Instagram</a>
+          ${tabs}
+          ${rating}
+          ${v.drink ? `<div class="card-drink-row"><span class="card-drink">${v.drink}</span></div>` : ""}
+          ${v.note ? `<p class="card-note">${v.note}</p>` : ""}
+          ${igBtn}
         </div>`;
+    }
+
+    window.showVisit = function (id, i) {
+      const cafe = CAFES_BY_ID[id];
+      const el = document.getElementById(id);
+      if (cafe && el) el.innerHTML = visitCard(cafe, i);
+    };
+
+    function popupHtml(cafe) {
+      cafe._id = "cafe-" + (++cafeSeq);
+      CAFES_BY_ID[cafe._id] = cafe;
+      return `<div class="cafe-card" id="${cafe._id}">${visitCard(cafe, 0)}</div>`;
     }
 
     // ---- render markers ----
     let markerLayer = L.layerGroup().addTo(map);
-    function render(cafes) {
+    function render(rows) {
       markerLayer.clearLayers();
+      const cafes = groupCafes(rows);
       const bounds = [];
       cafes.forEach((cafe) => {
         if (!isFinite(cafe.lat) || !isFinite(cafe.lng)) return;
         const m = L.marker([cafe.lat, cafe.lng], { icon: makeIcon(cafe) });
-        // We handle panning ourselves so the pin ends up centered AND the whole
-        // popup is on screen, so turn off Leaflet's own autoPan.
+        // We pan ourselves so the pin centers AND the whole popup stays on screen.
         m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 260, autoPan: false });
         m.on("popupopen", (e) => {
           const z = map.getZoom();
           const pt = map.project(m.getLatLng(), z);
-          const popupH = (e.popup._container && e.popup._container.offsetHeight) || 240;
-          // Shift the view center up by half the popup height: the pin sits
-          // just below center and the popup above it is fully visible/centered.
+          const popupH = (e.popup._container && e.popup._container.offsetHeight) || 260;
           pt.y -= popupH / 2;
           map.panTo(map.unproject(pt, z), { animate: true });
         });
@@ -425,18 +540,20 @@
       const idx = (k) => header.indexOf(k);
       const iName = idx("name"), iArea = idx("area"), iAddress = idx("address"),
         iLat = idx("lat"), iLng = idx("lng"), iRating = idx("rating"),
-        iDrink = idx("drink"), iNote = idx("note"), iIg = idx("ig"), iThumb = idx("thumb");
+        iDrink = idx("drink"), iNote = idx("note"), iIg = idx("ig"),
+        iThumb = idx("thumb"), iDate = idx("date");
       return rows.slice(1).map((r) => ({
         name: (r[iName] || "").trim(),
         area: (r[iArea] || "").trim(),
         address: iAddress >= 0 ? (r[iAddress] || "").trim() : "",
         lat: parseFloat(r[iLat]),
         lng: parseFloat(r[iLng]),
-        rating: parseFloat(r[iRating]) || 0,
+        rating: iRating >= 0 ? (r[iRating] || "").trim() : "",
         drink: iDrink >= 0 ? (r[iDrink] || "").trim() : "",
         note: (r[iNote] || "").trim(),
         ig: (r[iIg] || "").trim(),
-        thumb: iThumb >= 0 ? (r[iThumb] || "").trim() : ""
+        thumb: iThumb >= 0 ? (r[iThumb] || "").trim() : "",
+        date: iDate >= 0 ? (r[iDate] || "").trim() : ""
       })).filter((c) => c.name);
     }
 
@@ -445,10 +562,12 @@
       fetch(CONFIG.sheetCsvUrl)
         .then((res) => res.text())
         .then((text) => {
-          // Only rows that have real coordinates can be placed. If none do yet
-          // (e.g. the sheet still has template rows), fall back to the sample.
-          const cafes = csvToCafes(text).filter((c) => isFinite(c.lat) && isFinite(c.lng));
-          render(cafes.length ? cafes : SAMPLE_CAFES);
+          // Rows are grouped into cafes by name; a cafe is placed if any of its
+          // visits has coordinates. If nothing is located yet (e.g. the sheet
+          // still has template rows), fall back to the sample.
+          const rows = csvToCafes(text);
+          const anyLocated = rows.some((r) => isFinite(r.lat) && isFinite(r.lng));
+          render(anyLocated ? rows : SAMPLE_CAFES);
         })
         .catch((err) => {
           console.error("Sheet load failed, using sample data:", err);
