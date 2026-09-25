@@ -708,7 +708,12 @@
         m.on("popupopen", (e) => {
           adjustNote(document.getElementById(cafe._id));
           // Zoom in (if not already close) and center so the whole card shows.
-          const targetZoom = Math.max(map.getZoom(), 17);
+          // Snap the target to a valid zoom level (zoomSnap can forbid odd levels);
+          // otherwise setView renders at a different zoom than the pan offset below
+          // was measured for, and the pin drifts off the bottom of the screen.
+          const snap = map.options.zoomSnap || 1;
+          let targetZoom = Math.max(map.getZoom(), 17);
+          targetZoom = Math.min(Math.round(targetZoom / snap) * snap, map.getMaxZoom());
           const pt = map.project(m.getLatLng(), targetZoom);
           const popupH = (e.popup._container && e.popup._container.offsetHeight) || 280;
           pt.y -= popupH / 2;
