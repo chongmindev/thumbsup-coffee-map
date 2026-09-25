@@ -363,14 +363,10 @@
     //   3. Paste that URL between the quotes below.
     // Until this is filled in, the map shows the SAMPLE data further down.
     // ===============================================================
-    // When viewed locally (localhost / 127.0.0.1) read the local data-cafes.csv
-    // so you can preview all pins + photos without waiting on a deploy. On the
-    // live site it reads the Google Sheet.
-    const LOCAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    // Single source of truth: the repo's data-cafes.csv (holds the photos too).
+    // Update = edit this CSV + commit/push. (Old Google Sheet is retired.)
     const CONFIG = {
-      sheetCsvUrl: LOCAL
-        ? "data-cafes.csv"
-        : "https://docs.google.com/spreadsheets/d/e/2PACX-1vSQW6l4tPHp5Fp9p8XGuXx1-PTiPY9qC73i8ftUIlcuLzdPKPC35XFxsLgx2eSqwctwlXtf9ilufB3a/pub?gid=445751395&single=true&output=csv",
+      sheetCsvUrl: "data-cafes.csv",
 
       // MapTiler basemap key (free at maptiler.com → Account → Keys).
       // IMPORTANT: restrict the key to your domains in the MapTiler dashboard
@@ -414,8 +410,8 @@
     const map = L.map("map", {
       zoomControl: false,
       scrollWheelZoom: true,
-      zoomSnap: 1,
-      zoomDelta: 3,
+      zoomSnap: 2,
+      zoomDelta: 2,
       wheelPxPerZoomLevel: 25
     }).setView([37.5263529, 127.0306863], 16);
     L.control.zoom({ position: "topright" }).addTo(map);
