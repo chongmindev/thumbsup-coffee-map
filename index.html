@@ -360,8 +360,8 @@
     .edge-marker {
       position: absolute;
       transform: translate(-50%, -50%);
-      width: 40px;
-      height: 40px;
+      width: 46px;
+      height: 46px;
       padding: 0;
       border: none;
       background: none;
@@ -378,30 +378,56 @@
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      min-width: 34px; height: 34px;
-      padding: 2.5px;
+      min-width: 40px; height: 40px;
+      padding: 3px;
       border-radius: 999px;
       background: conic-gradient(from 210deg, var(--ig1), var(--ig2), var(--ig3), var(--ig4), var(--ig5), var(--ig1));
       box-sizing: border-box;
-      box-shadow: 0 4px 12px rgba(59, 42, 32, 0.35);
+      box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45);
       transition: transform 150ms ease, box-shadow 150ms ease;
+      /* gentle expanding halo so the chip catches the eye at the edge */
+      animation: edge-glow 2.2s ease-out infinite;
+    }
+    @keyframes edge-glow {
+      0%   { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45), 0 0 0 0 rgba(214, 41, 118, 0.5); }
+      70%  { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45), 0 0 0 12px rgba(214, 41, 118, 0); }
+      100% { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45), 0 0 0 0 rgba(214, 41, 118, 0); }
     }
     .edge-face {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 100%; height: 100%;
-      min-width: 29px;
-      padding: 0 6px;
+      min-width: 34px;
+      padding: 0 7px;
       border-radius: 999px;
       background: var(--espresso);
       color: #fff;
       border: 2px solid #fff;
       box-sizing: border-box;
-      font-size: 13px;
+      font-size: 15px;
       font-weight: 800;
       line-height: 1;
     }
+    /* place-name caption, sits on the inward side so NYC vs Seoul is obvious */
+    .edge-label {
+      position: absolute;
+      top: 50%; left: 50%;
+      white-space: nowrap;
+      background: var(--espresso);
+      color: #fff;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1.5px solid #fff;
+      box-shadow: 0 3px 10px rgba(59, 42, 32, 0.35);
+    }
+    .edge-marker.lbl-right  .edge-label { transform: translate(24px, -50%); }
+    .edge-marker.lbl-left   .edge-label { transform: translate(calc(-100% - 24px), -50%); }
+    .edge-marker.lbl-bottom .edge-label { transform: translate(-50%, 24px); }
+    .edge-marker.lbl-top    .edge-label { transform: translate(-50%, calc(-100% - 24px)); }
     /* hover: badge lifts a touch, arrow bobs outward toward its cluster */
     .edge-marker:hover .edge-badge {
       transform: translate(-50%, -50%) scale(1.12);
@@ -417,9 +443,9 @@
       display: block;
       width: 0; height: 0;
       transform: translate(-50%, -50%);
-      border-top: 6px solid transparent;
-      border-bottom: 6px solid transparent;
-      border-left: 10px solid var(--espresso);
+      border-top: 7px solid transparent;
+      border-bottom: 7px solid transparent;
+      border-left: 12px solid var(--espresso);
       filter: drop-shadow(0 1px 2px rgba(59, 42, 32, 0.4));
     }
     /* the bob runs along the arrow's local +x, which the parent has already
@@ -794,16 +820,6 @@
     let locatedCafes = [];             // cafes that have coordinates
     let homeZoom = 14;                 // the opening (Seoul) zoom, reused on chip clicks
 
-    // Shift a longitude by whole turns so it lands within 180deg of `refLng` —
-    // i.e. the shorter way around the globe. New York is west of Seoul on the
-    // flat map but closer travelling east, so its chip should point east.
-    function wrapLngNear(lng, refLng) {
-      let d = lng - refLng;
-      while (d > 180) d -= 360;
-      while (d < -180) d += 360;
-      return refLng + d;
-    }
-
     function ensureEdgeLayer() {
       if (edgeLayer) return;
       edgeLayer = document.createElement("div");
@@ -836,6 +852,32 @@
       return clusters;
     }
 
+    // A short, human place name for a cluster, so the chips read
+    // "New York" / "Seoul" / "Giheung" rather than just a count. Derived from
+    // the cafes' own area/address — the most common region, tidied up.
+    function lastPart(s) {
+      const p = String(s || "").split(",").map((x) => x.trim()).filter(Boolean);
+      return p.length ? p[p.length - 1] : "";
+    }
+    function prettyRegion(s) {
+      s = String(s).replace(/\s+(County|District)$/i, "").replace(/-(gu|si|dong)$/i, "").trim();
+      if (/gangnam|seoul|sinsa|samseong|apgujeong/i.test(s)) return "Seoul";
+      if (/manhattan|new york/i.test(s)) return "New York";
+      if (/kings|brooklyn/i.test(s)) return "Brooklyn";
+      if (/giheung|yongin/i.test(s)) return "Giheung";
+      return s;
+    }
+    function clusterLabel(cl) {
+      const counts = {};
+      cl.items.forEach((c) => {
+        const region = lastPart(c.area) || lastPart(shortenAddr(c.address));
+        if (region) counts[region] = (counts[region] || 0) + 1;
+      });
+      let best = "", bn = 0;
+      for (const k in counts) { if (counts[k] > bn) { bn = counts[k]; best = k; } }
+      return best ? prettyRegion(best) : "";
+    }
+
     // Rebuild the edge chips for whatever is currently off-screen.
     function recomputeEdges() {
       ensureEdgeLayer();
@@ -852,11 +894,10 @@
       });
       if (!off.length) return;
 
-      const refLng = map.getCenter().lng;
       clusterPins(off, 25).forEach((cl) => {
-        // Point toward the nearer copy of the cluster (shorter way round).
-        const adjLng = wrapLngNear(cl.clng, refLng);
-        const cp = map.latLngToContainerPoint([cl.clat, adjLng]);
+        // Direction is computed on a single world cycle (literal longitude),
+        // so New York always reads as west of Korea — no wrap-around shortcut.
+        const cp = map.latLngToContainerPoint([cl.clat, cl.clng]);
         const dx = cp.x - cx, dy = cp.y - cy;
         if (dx === 0 && dy === 0) return;
         // Smallest t>0 where center + t*(dir) hits the inset rectangle.
@@ -872,22 +913,28 @@
         btn.className = "edge-marker";
         btn.style.left = ex + "px";
         btn.style.top = ey + "px";
-        btn.title = cl.items.length + (cl.items.length === 1 ? " cafe this way" : " cafes this way");
+        // Put the place-name label on the inward side (opposite the arrow),
+        // so it stays on screen and never collides with the pointer.
+        const horiz = Math.abs(dx) >= Math.abs(dy);
+        btn.classList.add(horiz ? (dx < 0 ? "lbl-right" : "lbl-left")
+                                : (dy < 0 ? "lbl-bottom" : "lbl-top"));
+        const label = clusterLabel(cl);
+        btn.title = label + " — " + cl.items.length + (cl.items.length === 1 ? " cafe this way" : " cafes this way");
         btn.innerHTML =
-          `<span class="edge-arrow" style="transform:rotate(${ang}deg) translateX(24px)"><i></i></span>` +
-          `<span class="edge-badge"><span class="edge-face">${cl.items.length}</span></span>`;
+          `<span class="edge-arrow" style="transform:rotate(${ang}deg) translateX(28px)"><i></i></span>` +
+          `<span class="edge-badge"><span class="edge-face">${cl.items.length}</span></span>` +
+          (label ? `<span class="edge-label">${label}</span>` : "");
         btn.addEventListener("click", () => flyToClusterMiddle(cl));
         edgeLayer.appendChild(btn);
       });
     }
 
-    // Fly to the middle of the cluster at the opening (Seoul) zoom level —
-    // zooming out if we're currently zoomed in — and travel the shorter way
-    // around the globe so the motion matches the arrow.
+    // Fly to the middle of the cluster at the opening (Seoul) zoom level,
+    // zooming out if we're currently zoomed in. Uses the literal location
+    // so the travel direction matches the arrow (e.g. west to New York).
     function flyToClusterMiddle(cl) {
-      const adjLng = wrapLngNear(cl.clng, map.getCenter().lng);
       map.closePopup();
-      map.flyTo([cl.clat, adjLng], homeZoom, { duration: 1.1 });
+      map.flyTo([cl.clat, cl.clng], homeZoom, { duration: 1.1 });
     }
 
     map.on("moveend zoomend", recomputeEdges);
