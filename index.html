@@ -821,7 +821,6 @@
     let edgeLayer = null;              // the overlay div
     let locatedCafes = [];             // cafes that have coordinates
     let stableClusters = [];           // fixed clusters of all located cafes
-    let homeZoom = 14;                 // the opening (Seoul) zoom, reused on chip clicks
 
     function ensureEdgeLayer() {
       if (edgeLayer) return;
@@ -910,6 +909,24 @@
       return [chip.off.reduce((s, i) => s + i.lat, 0) / n, chip.off.reduce((s, i) => s + i.lng, 0) / n];
     }
 
+    // Frame a set of cafes with an even margin. The map's zoomSnap is coarse
+    // (2) so scroll and +/- feel chunky, but that coarseness would floor a
+    // wide cluster (New York) down a whole level and leave it far more margin
+    // than a tight one (Seoul). So we drop the snap to precise just for this
+    // one move, then restore it — the wheel/buttons keep their big steps.
+    function fitPrecise(bounds, animate) {
+      const prevSnap = map.options.zoomSnap;
+      map.options.zoomSnap = 0;
+      const opts = { padding: [80, 80], maxZoom: 16 };
+      if (animate) {
+        map.flyToBounds(bounds, Object.assign({ duration: 1.1 }, opts));
+        map.once("moveend", () => { map.options.zoomSnap = prevSnap; });
+      } else {
+        map.fitBounds(bounds, opts);
+        map.options.zoomSnap = prevSnap;
+      }
+    }
+
     // Rebuild the edge chips from whatever is currently off-screen, grouped by
     // stable cluster so labels stay put across zooms.
     function recomputeEdges() {
@@ -964,11 +981,9 @@
           (label ? `<span class="edge-label">${label}</span>` : "");
         btn.addEventListener("click", () => {
           map.closePopup();
-          // Fit the whole target cluster with a margin, so New York (spread
-          // wide) and Seoul (tight) each frame at their own right zoom instead
-          // of a one-size zoom that clips the bigger one.
-          const b = L.latLngBounds(d.items.map((i) => [i.lat, i.lng]));
-          map.flyToBounds(b, { padding: [80, 80], maxZoom: 16, duration: 1.1 });
+          // Fit the whole target cluster with the same margin every time, so
+          // New York (spread wide) and Seoul (tight) each frame correctly.
+          fitPrecise(L.latLngBounds(d.items.map((i) => [i.lat, i.lng])), true);
         });
         edgeLayer.appendChild(btn);
       });
@@ -1013,16 +1028,13 @@
       stableClusters = clusterPins(locatedCafes.slice(), 25);
       const SEOUL = [37.5326, 127.0246]; // central Gangnam anchor
       if (locatedCafes.length === 1) {
-        homeZoom = 16;
-        map.setView([locatedCafes[0].lat, locatedCafes[0].lng], homeZoom);
+        map.setView([locatedCafes[0].lat, locatedCafes[0].lng], 16);
       } else if (locatedCafes.length) {
         const clusters = stableClusters.slice()
           .sort((a, b) => distKm([a.clat, a.clng], SEOUL) - distKm([b.clat, b.clng], SEOUL));
-        const hb = L.latLngBounds(clusters[0].items.map((c) => [c.lat, c.lng]));
-        // Capture the exact zoom this frame settles on so chip clicks can
-        // return every cluster to the same "city view" scale.
-        homeZoom = Math.min(map.getBoundsZoom(hb, false, L.point(60, 60)), 16);
-        map.setView(hb.getCenter(), homeZoom);
+        // Same precise, even-margin fit a chip click gives — so the opening
+        // Seoul frame matches what you get when you click back to it.
+        fitPrecise(L.latLngBounds(clusters[0].items.map((c) => [c.lat, c.lng])), false);
       }
       recomputeEdges();
       // Size addresses to the largest uniform font that keeps them one-line.
