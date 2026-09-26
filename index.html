@@ -811,13 +811,16 @@
     // ===============================================================
     // OFF-SCREEN EDGE MARKERS
     // ---------------------------------------------------------------
-    // Pins outside the current viewport are grouped into geographic
-    // clusters; each cluster gets one chip pinned to the viewport edge,
-    // pointing toward it, with a count. Click a chip to fly straight to
-    // the nearest pin in that cluster and open it.
+    // Cafes are grouped once into STABLE geographic clusters (Seoul, New
+    // York, Yongin...). A cluster whose middle is off-screen gets a chip
+    // pinned to the viewport edge, pointing toward it, with a count.
+    // Clicking flies to that middle. Chips that would land on the same spot
+    // (clusters in the same screen direction) are merged into one, so a
+    // count is never hidden behind another chip.
     // ===============================================================
     let edgeLayer = null;              // the overlay div
     let locatedCafes = [];             // cafes that have coordinates
+    let stableClusters = [];           // fixed clusters of all located cafes
     let homeZoom = 14;                 // the opening (Seoul) zoom, reused on chip clicks
 
     function ensureEdgeLayer() {
@@ -878,66 +881,86 @@
       return best ? prettyRegion(best) : "";
     }
 
-    // Rebuild the edge chips for whatever is currently off-screen.
+    // Where a cluster's edge chip sits: the point on the inset rectangle in
+    // the direction of the cluster's middle, which edge that is, and the exact
+    // bearing. Direction uses the literal longitude (single world cycle), so
+    // New York always reads as west of Korea — no wrap-around shortcut.
+    function edgeGeom(clat, clng, w, h, cx, cy, INSET) {
+      const cp = map.latLngToContainerPoint([clat, clng]);
+      const dx = cp.x - cx, dy = cp.y - cy;
+      let t = Infinity, edge = "";
+      if (dx > 0) { const tt = (w - INSET - cx) / dx; if (tt < t) { t = tt; edge = "right"; } }
+      else if (dx < 0) { const tt = (INSET - cx) / dx; if (tt < t) { t = tt; edge = "left"; } }
+      if (dy > 0) { const tt = (h - INSET - cy) / dy; if (tt < t) { t = tt; edge = "bottom"; } }
+      else if (dy < 0) { const tt = (INSET - cy) / dy; if (tt < t) { t = tt; edge = "top"; } }
+      return { ex: cx + dx * t, ey: cy + dy * t, edge: edge, ang: Math.atan2(dy, dx) * 180 / Math.PI, on: cp.x >= 0 && cp.x <= w && cp.y >= 0 && cp.y <= h };
+    }
+
+    // Recompute the mean lat/lng of a chip's cafes — the "middle" we fly to.
+    // Only the chip's own cafes count, never anything outside it.
+    function recenter(c) {
+      const n = c.items.length;
+      c.clat = c.items.reduce((s, i) => s + i.lat, 0) / n;
+      c.clng = c.items.reduce((s, i) => s + i.lng, 0) / n;
+    }
+
+    // Rebuild the edge chips from the stable clusters whose middle is off-screen.
     function recomputeEdges() {
       ensureEdgeLayer();
       edgeLayer.innerHTML = "";
-      if (!locatedCafes.length) return;
+      if (!stableClusters.length) return;
 
       const size = map.getSize();
       const w = size.x, h = size.y, cx = w / 2, cy = h / 2;
       const INSET = 46; // keep the chip fully on screen
 
-      const off = locatedCafes.filter((c) => {
-        const p = map.latLngToContainerPoint([c.lat, c.lng]);
-        return p.x < 0 || p.x > w || p.y < 0 || p.y > h;
+      // A cluster earns a chip only when its own middle sits off-screen. This
+      // keeps chips tied to whole regions: a couple of pins peeking off the
+      // edge of a cluster you're already looking at don't spawn a stray chip.
+      let chips = stableClusters
+        .filter((cl) => !edgeGeom(cl.clat, cl.clng, w, h, cx, cy, INSET).on)
+        .map((cl) => ({ items: cl.items.slice(), clat: cl.clat, clng: cl.clng }));
+      if (!chips.length) return;
+
+      // Merge chips that land on the same spot (clusters in the same screen
+      // direction), so a count can never hide behind another chip.
+      const MERGE = 54;
+      const merged = [];
+      chips.forEach((c) => {
+        const g = edgeGeom(c.clat, c.clng, w, h, cx, cy, INSET);
+        const near = merged.find((m) => Math.hypot(m._g.ex - g.ex, m._g.ey - g.ey) < MERGE);
+        if (near) {
+          near.items = near.items.concat(c.items);
+          recenter(near);
+          near._g = edgeGeom(near.clat, near.clng, w, h, cx, cy, INSET);
+        } else {
+          c._g = g;
+          merged.push(c);
+        }
       });
-      if (!off.length) return;
 
-      clusterPins(off, 25).forEach((cl) => {
-        // Direction is computed on a single world cycle (literal longitude),
-        // so New York always reads as west of Korea — no wrap-around shortcut.
-        const cp = map.latLngToContainerPoint([cl.clat, cl.clng]);
-        const dx = cp.x - cx, dy = cp.y - cy;
-        if (dx === 0 && dy === 0) return;
-        // Smallest t>0 where center + t*(dir) hits the inset rectangle, and
-        // WHICH edge it hit. The edge (not just |dx| vs |dy|) is what decides
-        // the label side, so the left/right handling carries over to top/bottom
-        // regardless of the viewport's aspect ratio.
-        let t = Infinity, edge = "";
-        if (dx > 0) { const tt = (w - INSET - cx) / dx; if (tt < t) { t = tt; edge = "right"; } }
-        else if (dx < 0) { const tt = (INSET - cx) / dx; if (tt < t) { t = tt; edge = "left"; } }
-        if (dy > 0) { const tt = (h - INSET - cy) / dy; if (tt < t) { t = tt; edge = "bottom"; } }
-        else if (dy < 0) { const tt = (INSET - cy) / dy; if (tt < t) { t = tt; edge = "top"; } }
-        const ex = cx + dx * t, ey = cy + dy * t;
-        const ang = Math.atan2(dy, dx) * 180 / Math.PI;
-
+      const labelSide = { left: "lbl-right", right: "lbl-left", top: "lbl-bottom", bottom: "lbl-top" };
+      merged.forEach((c) => {
+        const g = c._g;
+        const label = clusterLabel(c);
         const btn = document.createElement("button");
         btn.className = "edge-marker";
-        btn.style.left = ex + "px";
-        btn.style.top = ey + "px";
-        // Put the place-name label on the inward side of whichever edge the
-        // chip sits on (left edge -> label to the right, bottom edge -> label
-        // above, etc.), so it stays on screen and never collides with the arrow.
-        const labelSide = { left: "lbl-right", right: "lbl-left", top: "lbl-bottom", bottom: "lbl-top" };
-        btn.classList.add(labelSide[edge] || "lbl-left");
-        const label = clusterLabel(cl);
-        btn.title = label + " — " + cl.items.length + (cl.items.length === 1 ? " cafe this way" : " cafes this way");
+        btn.style.left = g.ex + "px";
+        btn.style.top = g.ey + "px";
+        // Label sits on the inward side of whichever edge the chip is on, so it
+        // stays on screen and never collides with the outward-pointing arrow.
+        btn.classList.add(labelSide[g.edge] || "lbl-left");
+        btn.title = label + " — " + c.items.length + (c.items.length === 1 ? " cafe this way" : " cafes this way");
         btn.innerHTML =
-          `<span class="edge-arrow" style="transform:rotate(${ang}deg) translateX(28px)"><i></i></span>` +
-          `<span class="edge-badge"><span class="edge-face">${cl.items.length}</span></span>` +
+          `<span class="edge-arrow" style="transform:rotate(${g.ang}deg) translateX(28px)"><i></i></span>` +
+          `<span class="edge-badge"><span class="edge-face">${c.items.length}</span></span>` +
           (label ? `<span class="edge-label">${label}</span>` : "");
-        btn.addEventListener("click", () => flyToClusterMiddle(cl));
+        btn.addEventListener("click", () => {
+          map.closePopup();
+          map.flyTo([c.clat, c.clng], homeZoom, { duration: 1.1 });
+        });
         edgeLayer.appendChild(btn);
       });
-    }
-
-    // Fly to the middle of the cluster at the opening (Seoul) zoom level,
-    // zooming out if we're currently zoomed in. Uses the literal location
-    // so the travel direction matches the arrow (e.g. west to New York).
-    function flyToClusterMiddle(cl) {
-      map.closePopup();
-      map.flyTo([cl.clat, cl.clng], homeZoom, { duration: 1.1 });
     }
 
     map.on("moveend zoomend", recomputeEdges);
@@ -974,13 +997,16 @@
       // how many cafes are elsewhere. We cluster the cafes, then pick the
       // cluster nearest central Seoul. Everything else — the far-south pin,
       // New York — stays off-screen and shows up as an edge marker.
+      // Fixed clusters of every located cafe (Seoul, New York, Yongin...),
+      // used both to choose the opening frame and to drive the edge chips.
+      stableClusters = clusterPins(locatedCafes.slice(), 25);
       const SEOUL = [37.5326, 127.0246]; // central Gangnam anchor
       if (locatedCafes.length === 1) {
         homeZoom = 16;
         map.setView([locatedCafes[0].lat, locatedCafes[0].lng], homeZoom);
       } else if (locatedCafes.length) {
-        const clusters = clusterPins(locatedCafes.slice(), 25);
-        clusters.sort((a, b) => distKm([a.clat, a.clng], SEOUL) - distKm([b.clat, b.clng], SEOUL));
+        const clusters = stableClusters.slice()
+          .sort((a, b) => distKm([a.clat, a.clng], SEOUL) - distKm([b.clat, b.clng], SEOUL));
         const hb = L.latLngBounds(clusters[0].items.map((c) => [c.lat, c.lng]));
         // Capture the exact zoom this frame settles on so chip clicks can
         // return every cluster to the same "city view" scale.
