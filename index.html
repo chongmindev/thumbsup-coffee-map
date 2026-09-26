@@ -389,9 +389,9 @@
       animation: edge-glow 1.9s ease-out infinite;
     }
     @keyframes edge-glow {
-      0%   { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 0 rgba(214, 41, 118, 0.6); }
-      70%  { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 16px rgba(214, 41, 118, 0); }
-      100% { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 0 rgba(214, 41, 118, 0); }
+      0%   { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 0 rgba(216, 96, 16, 0.6); }
+      70%  { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 16px rgba(216, 96, 16, 0); }
+      100% { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 0 rgba(216, 96, 16, 0); }
     }
     .edge-face {
       display: flex;
@@ -896,17 +896,22 @@
       return { ex: cx + dx * t, ey: cy + dy * t, edge: edge, ang: Math.atan2(dy, dx) * 180 / Math.PI, on: cp.x >= 0 && cp.x <= w && cp.y >= 0 && cp.y <= h };
     }
 
-    // The biggest stable cluster a chip stands for — its label, position and
-    // fly-to target all come from this, so an outlier merged in for display
-    // (e.g. the lone far-south pin) never drags the landing off the main group.
+    // The biggest stable cluster a chip stands for — its label and fly-to
+    // target come from this, so an outlier merged in for display (e.g. the
+    // lone far-south pin) never drags the landing off the main group.
     function dominant(chip) {
       return chip.clusters.reduce((a, b) => (b.items.length > a.items.length ? b : a));
     }
-    function chipCount(chip) {
-      return chip.clusters.reduce((s, cl) => s + cl.items.length, 0);
+    // Mean position of the cafes this chip actually stands for — the ones
+    // currently OFF-screen. The chip points there, so it aims at the hidden
+    // pins, not at a cluster middle that may be sitting on screen.
+    function anchorOf(chip) {
+      const n = chip.off.length;
+      return [chip.off.reduce((s, i) => s + i.lat, 0) / n, chip.off.reduce((s, i) => s + i.lng, 0) / n];
     }
 
-    // Rebuild the edge chips from the stable clusters whose middle is off-screen.
+    // Rebuild the edge chips from whatever is currently off-screen, grouped by
+    // stable cluster so labels stay put across zooms.
     function recomputeEdges() {
       ensureEdgeLayer();
       edgeLayer.innerHTML = "";
@@ -915,31 +920,35 @@
       const size = map.getSize();
       const w = size.x, h = size.y, cx = w / 2, cy = h / 2;
       const INSET = 46; // keep the chip fully on screen
-      const geom = (chip) => { const d = dominant(chip); return edgeGeom(d.clat, d.clng, w, h, cx, cy, INSET); };
+      const isOff = (it) => { const p = map.latLngToContainerPoint([it.lat, it.lng]); return p.x < 0 || p.x > w || p.y < 0 || p.y > h; };
+      const geom = (chip) => { const a = anchorOf(chip); return edgeGeom(a[0], a[1], w, h, cx, cy, INSET); };
 
-      // A cluster earns a chip only when its own middle sits off-screen. This
-      // keeps chips tied to whole regions: a couple of pins peeking off the
-      // edge of a cluster you're already looking at don't spawn a stray chip.
-      const chips = stableClusters
-        .filter((cl) => !edgeGeom(cl.clat, cl.clng, w, h, cx, cy, INSET).on)
-        .map((cl) => ({ clusters: [cl] }));
+      // One candidate chip per stable cluster that has cafes off-screen. The
+      // count is exactly how many are hidden — so a cluster you're mostly
+      // looking at shows a small number (or nothing), never its whole size.
+      const chips = [];
+      stableClusters.forEach((cl) => {
+        const off = cl.items.filter(isOff);
+        if (off.length) chips.push({ clusters: [cl], off: off });
+      });
       if (!chips.length) return;
 
-      // Merge chips that land on the same spot (clusters in the same screen
+      // Merge chips that land on the same spot (hidden pins in the same screen
       // direction) so a count can never hide behind another chip. The merged
-      // chip still points at, and flies to, its dominant cluster's middle.
+      // chip still flies to its dominant cluster's middle.
       const MERGE = 54;
       const merged = [];
       chips.forEach((c) => {
         const g = geom(c);
+        if (!g.edge) return; // hidden pins straddle the center — no single direction
         const near = merged.find((m) => Math.hypot(m._g.ex - g.ex, m._g.ey - g.ey) < MERGE);
-        if (near) { near.clusters = near.clusters.concat(c.clusters); near._g = geom(near); }
+        if (near) { near.clusters = near.clusters.concat(c.clusters); near.off = near.off.concat(c.off); near._g = geom(near); }
         else { c._g = g; merged.push(c); }
       });
 
       const labelSide = { left: "lbl-right", right: "lbl-left", top: "lbl-bottom", bottom: "lbl-top" };
       merged.forEach((c) => {
-        const g = c._g, d = dominant(c), count = chipCount(c);
+        const g = c._g, d = dominant(c), count = c.off.length;
         const label = clusterLabel(d);
         const btn = document.createElement("button");
         btn.className = "edge-marker";
@@ -955,7 +964,11 @@
           (label ? `<span class="edge-label">${label}</span>` : "");
         btn.addEventListener("click", () => {
           map.closePopup();
-          map.flyTo([d.clat, d.clng], homeZoom, { duration: 1.1 }); // land on the main group
+          // Fit the whole target cluster with a margin, so New York (spread
+          // wide) and Seoul (tight) each frame at their own right zoom instead
+          // of a one-size zoom that clips the bigger one.
+          const b = L.latLngBounds(d.items.map((i) => [i.lat, i.lng]));
+          map.flyToBounds(b, { padding: [80, 80], maxZoom: 16, duration: 1.1 });
         });
         edgeLayer.appendChild(btn);
       });
