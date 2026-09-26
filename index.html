@@ -909,7 +909,7 @@
           // otherwise setView renders at a different zoom than the pan offset below
           // was measured for, and the pin drifts off the bottom of the screen.
           const snap = map.options.zoomSnap || 1;
-          let targetZoom = Math.max(map.getZoom(), 17);
+          let targetZoom = Math.max(map.getZoom(), 15); // floor of 15 snaps to 16
           targetZoom = Math.min(Math.round(targetZoom / snap) * snap, map.getMaxZoom());
           const pt = map.project(m.getLatLng(), targetZoom);
           const popupH = (e.popup._container && e.popup._container.offsetHeight) || 280;
