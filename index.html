@@ -360,8 +360,8 @@
     .edge-marker {
       position: absolute;
       transform: translate(-50%, -50%);
-      width: 46px;
-      height: 46px;
+      width: 52px;
+      height: 52px;
       padding: 0;
       border: none;
       background: none;
@@ -378,34 +378,34 @@
       position: absolute;
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      min-width: 40px; height: 40px;
+      min-width: 46px; height: 46px;
       padding: 3px;
       border-radius: 999px;
       background: conic-gradient(from 210deg, var(--ig1), var(--ig2), var(--ig3), var(--ig4), var(--ig5), var(--ig1));
       box-sizing: border-box;
-      box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45);
+      box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5);
       transition: transform 150ms ease, box-shadow 150ms ease;
-      /* gentle expanding halo so the chip catches the eye at the edge */
-      animation: edge-glow 2.2s ease-out infinite;
+      /* expanding halo so the chip catches the eye at the edge */
+      animation: edge-glow 1.9s ease-out infinite;
     }
     @keyframes edge-glow {
-      0%   { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45), 0 0 0 0 rgba(214, 41, 118, 0.5); }
-      70%  { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45), 0 0 0 12px rgba(214, 41, 118, 0); }
-      100% { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45), 0 0 0 0 rgba(214, 41, 118, 0); }
+      0%   { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 0 rgba(214, 41, 118, 0.6); }
+      70%  { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 16px rgba(214, 41, 118, 0); }
+      100% { box-shadow: 0 8px 20px rgba(59, 42, 32, 0.5), 0 0 0 0 rgba(214, 41, 118, 0); }
     }
     .edge-face {
       display: flex;
       align-items: center;
       justify-content: center;
       width: 100%; height: 100%;
-      min-width: 34px;
-      padding: 0 7px;
+      min-width: 40px;
+      padding: 0 8px;
       border-radius: 999px;
       background: var(--espresso);
       color: #fff;
-      border: 2px solid #fff;
+      border: 2.5px solid #fff;
       box-sizing: border-box;
-      font-size: 15px;
+      font-size: 16.5px;
       font-weight: 800;
       line-height: 1;
     }
@@ -416,13 +416,13 @@
       white-space: nowrap;
       background: var(--espresso);
       color: #fff;
-      font-size: 11.5px;
+      font-size: 12.5px;
       font-weight: 700;
       letter-spacing: 0.2px;
-      padding: 3px 9px;
+      padding: 4px 10px;
       border-radius: 999px;
       border: 1.5px solid #fff;
-      box-shadow: 0 3px 10px rgba(59, 42, 32, 0.35);
+      box-shadow: 0 4px 12px rgba(59, 42, 32, 0.4);
     }
     .edge-marker.lbl-right  .edge-label { transform: translate(24px, -50%); }
     .edge-marker.lbl-left   .edge-label { transform: translate(calc(-100% - 24px), -50%); }
@@ -443,10 +443,10 @@
       display: block;
       width: 0; height: 0;
       transform: translate(-50%, -50%);
-      border-top: 7px solid transparent;
-      border-bottom: 7px solid transparent;
-      border-left: 12px solid var(--espresso);
-      filter: drop-shadow(0 1px 2px rgba(59, 42, 32, 0.4));
+      border-top: 8px solid transparent;
+      border-bottom: 8px solid transparent;
+      border-left: 13px solid var(--espresso);
+      filter: drop-shadow(0 1px 2px rgba(59, 42, 32, 0.45));
     }
     /* the bob runs along the arrow's local +x, which the parent has already
        rotated to the bearing — so it nudges out toward the cluster. */
@@ -896,12 +896,14 @@
       return { ex: cx + dx * t, ey: cy + dy * t, edge: edge, ang: Math.atan2(dy, dx) * 180 / Math.PI, on: cp.x >= 0 && cp.x <= w && cp.y >= 0 && cp.y <= h };
     }
 
-    // Recompute the mean lat/lng of a chip's cafes — the "middle" we fly to.
-    // Only the chip's own cafes count, never anything outside it.
-    function recenter(c) {
-      const n = c.items.length;
-      c.clat = c.items.reduce((s, i) => s + i.lat, 0) / n;
-      c.clng = c.items.reduce((s, i) => s + i.lng, 0) / n;
+    // The biggest stable cluster a chip stands for — its label, position and
+    // fly-to target all come from this, so an outlier merged in for display
+    // (e.g. the lone far-south pin) never drags the landing off the main group.
+    function dominant(chip) {
+      return chip.clusters.reduce((a, b) => (b.items.length > a.items.length ? b : a));
+    }
+    function chipCount(chip) {
+      return chip.clusters.reduce((s, cl) => s + cl.items.length, 0);
     }
 
     // Rebuild the edge chips from the stable clusters whose middle is off-screen.
@@ -913,36 +915,32 @@
       const size = map.getSize();
       const w = size.x, h = size.y, cx = w / 2, cy = h / 2;
       const INSET = 46; // keep the chip fully on screen
+      const geom = (chip) => { const d = dominant(chip); return edgeGeom(d.clat, d.clng, w, h, cx, cy, INSET); };
 
       // A cluster earns a chip only when its own middle sits off-screen. This
       // keeps chips tied to whole regions: a couple of pins peeking off the
       // edge of a cluster you're already looking at don't spawn a stray chip.
-      let chips = stableClusters
+      const chips = stableClusters
         .filter((cl) => !edgeGeom(cl.clat, cl.clng, w, h, cx, cy, INSET).on)
-        .map((cl) => ({ items: cl.items.slice(), clat: cl.clat, clng: cl.clng }));
+        .map((cl) => ({ clusters: [cl] }));
       if (!chips.length) return;
 
       // Merge chips that land on the same spot (clusters in the same screen
-      // direction), so a count can never hide behind another chip.
+      // direction) so a count can never hide behind another chip. The merged
+      // chip still points at, and flies to, its dominant cluster's middle.
       const MERGE = 54;
       const merged = [];
       chips.forEach((c) => {
-        const g = edgeGeom(c.clat, c.clng, w, h, cx, cy, INSET);
+        const g = geom(c);
         const near = merged.find((m) => Math.hypot(m._g.ex - g.ex, m._g.ey - g.ey) < MERGE);
-        if (near) {
-          near.items = near.items.concat(c.items);
-          recenter(near);
-          near._g = edgeGeom(near.clat, near.clng, w, h, cx, cy, INSET);
-        } else {
-          c._g = g;
-          merged.push(c);
-        }
+        if (near) { near.clusters = near.clusters.concat(c.clusters); near._g = geom(near); }
+        else { c._g = g; merged.push(c); }
       });
 
       const labelSide = { left: "lbl-right", right: "lbl-left", top: "lbl-bottom", bottom: "lbl-top" };
       merged.forEach((c) => {
-        const g = c._g;
-        const label = clusterLabel(c);
+        const g = c._g, d = dominant(c), count = chipCount(c);
+        const label = clusterLabel(d);
         const btn = document.createElement("button");
         btn.className = "edge-marker";
         btn.style.left = g.ex + "px";
@@ -950,14 +948,14 @@
         // Label sits on the inward side of whichever edge the chip is on, so it
         // stays on screen and never collides with the outward-pointing arrow.
         btn.classList.add(labelSide[g.edge] || "lbl-left");
-        btn.title = label + " — " + c.items.length + (c.items.length === 1 ? " cafe this way" : " cafes this way");
+        btn.title = label + " — " + count + (count === 1 ? " cafe this way" : " cafes this way");
         btn.innerHTML =
-          `<span class="edge-arrow" style="transform:rotate(${g.ang}deg) translateX(28px)"><i></i></span>` +
-          `<span class="edge-badge"><span class="edge-face">${c.items.length}</span></span>` +
+          `<span class="edge-arrow" style="transform:rotate(${g.ang}deg) translateX(31px)"><i></i></span>` +
+          `<span class="edge-badge"><span class="edge-face">${count}</span></span>` +
           (label ? `<span class="edge-label">${label}</span>` : "");
         btn.addEventListener("click", () => {
           map.closePopup();
-          map.flyTo([c.clat, c.clng], homeZoom, { duration: 1.1 });
+          map.flyTo([d.clat, d.clng], homeZoom, { duration: 1.1 }); // land on the main group
         });
         edgeLayer.appendChild(btn);
       });
