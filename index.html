@@ -981,9 +981,10 @@
           (label ? `<span class="edge-label">${label}</span>` : "");
         btn.addEventListener("click", () => {
           map.closePopup();
-          // Fit the whole target cluster with the same margin every time, so
-          // New York (spread wide) and Seoul (tight) each frame correctly.
-          fitPrecise(L.latLngBounds(d.items.map((i) => [i.lat, i.lng])), true);
+          // Fit exactly the pins this chip stands for — the ones currently
+          // off-screen (its count) — so a partial "Seoul 9" frames those 9
+          // rather than zooming out to the whole cluster.
+          fitPrecise(L.latLngBounds(c.off.map((i) => [i.lat, i.lng])), true);
         });
         edgeLayer.appendChild(btn);
       });
