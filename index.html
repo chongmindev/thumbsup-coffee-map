@@ -864,7 +864,7 @@
       if (/gangnam|seoul|sinsa|samseong|apgujeong/i.test(s)) return "Seoul";
       if (/manhattan|new york/i.test(s)) return "New York";
       if (/kings|brooklyn/i.test(s)) return "Brooklyn";
-      if (/giheung|yongin/i.test(s)) return "Giheung";
+      if (/giheung|yongin/i.test(s)) return "Yongin";
       return s;
     }
     function clusterLabel(cl) {
@@ -900,12 +900,15 @@
         const cp = map.latLngToContainerPoint([cl.clat, cl.clng]);
         const dx = cp.x - cx, dy = cp.y - cy;
         if (dx === 0 && dy === 0) return;
-        // Smallest t>0 where center + t*(dir) hits the inset rectangle.
-        let t = Infinity;
-        if (dx > 0) t = Math.min(t, (w - INSET - cx) / dx);
-        else if (dx < 0) t = Math.min(t, (INSET - cx) / dx);
-        if (dy > 0) t = Math.min(t, (h - INSET - cy) / dy);
-        else if (dy < 0) t = Math.min(t, (INSET - cy) / dy);
+        // Smallest t>0 where center + t*(dir) hits the inset rectangle, and
+        // WHICH edge it hit. The edge (not just |dx| vs |dy|) is what decides
+        // the label side, so the left/right handling carries over to top/bottom
+        // regardless of the viewport's aspect ratio.
+        let t = Infinity, edge = "";
+        if (dx > 0) { const tt = (w - INSET - cx) / dx; if (tt < t) { t = tt; edge = "right"; } }
+        else if (dx < 0) { const tt = (INSET - cx) / dx; if (tt < t) { t = tt; edge = "left"; } }
+        if (dy > 0) { const tt = (h - INSET - cy) / dy; if (tt < t) { t = tt; edge = "bottom"; } }
+        else if (dy < 0) { const tt = (INSET - cy) / dy; if (tt < t) { t = tt; edge = "top"; } }
         const ex = cx + dx * t, ey = cy + dy * t;
         const ang = Math.atan2(dy, dx) * 180 / Math.PI;
 
@@ -913,11 +916,11 @@
         btn.className = "edge-marker";
         btn.style.left = ex + "px";
         btn.style.top = ey + "px";
-        // Put the place-name label on the inward side (opposite the arrow),
-        // so it stays on screen and never collides with the pointer.
-        const horiz = Math.abs(dx) >= Math.abs(dy);
-        btn.classList.add(horiz ? (dx < 0 ? "lbl-right" : "lbl-left")
-                                : (dy < 0 ? "lbl-bottom" : "lbl-top"));
+        // Put the place-name label on the inward side of whichever edge the
+        // chip sits on (left edge -> label to the right, bottom edge -> label
+        // above, etc.), so it stays on screen and never collides with the arrow.
+        const labelSide = { left: "lbl-right", right: "lbl-left", top: "lbl-bottom", bottom: "lbl-top" };
+        btn.classList.add(labelSide[edge] || "lbl-left");
         const label = clusterLabel(cl);
         btn.title = label + " — " + cl.items.length + (cl.items.length === 1 ? " cafe this way" : " cafes this way");
         btn.innerHTML =
