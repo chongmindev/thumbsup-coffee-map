@@ -384,6 +384,7 @@
       background: conic-gradient(from 210deg, var(--ig1), var(--ig2), var(--ig3), var(--ig4), var(--ig5), var(--ig1));
       box-sizing: border-box;
       box-shadow: 0 4px 12px rgba(59, 42, 32, 0.35);
+      transition: transform 150ms ease, box-shadow 150ms ease;
     }
     .edge-face {
       display: flex;
@@ -401,7 +402,11 @@
       font-weight: 800;
       line-height: 1;
     }
-    .edge-marker:hover .edge-badge { box-shadow: 0 6px 16px rgba(59, 42, 32, 0.45); }
+    /* hover: badge lifts a touch, arrow bobs outward toward its cluster */
+    .edge-marker:hover .edge-badge {
+      transform: translate(-50%, -50%) scale(1.12);
+      box-shadow: 0 7px 18px rgba(59, 42, 32, 0.5);
+    }
     /* the outward-pointing arrow, rotated to the exact bearing at render time */
     .edge-arrow {
       position: absolute;
@@ -416,6 +421,13 @@
       border-bottom: 6px solid transparent;
       border-left: 10px solid var(--espresso);
       filter: drop-shadow(0 1px 2px rgba(59, 42, 32, 0.4));
+    }
+    /* the bob runs along the arrow's local +x, which the parent has already
+       rotated to the bearing — so it nudges out toward the cluster. */
+    .edge-marker:hover .edge-arrow i { animation: edge-bob 0.7s ease-in-out infinite; }
+    @keyframes edge-bob {
+      0%, 100% { transform: translate(-50%, -50%) translateX(0); }
+      50%      { transform: translate(-50%, -50%) translateX(6px); }
     }
   </style>
 </head>
@@ -780,7 +792,17 @@
     // ===============================================================
     let edgeLayer = null;              // the overlay div
     let locatedCafes = [];             // cafes that have coordinates
-    const markerByCafe = new Map();    // cafe object -> its Leaflet marker
+    let homeZoom = 14;                 // the opening (Seoul) zoom, reused on chip clicks
+
+    // Shift a longitude by whole turns so it lands within 180deg of `refLng` —
+    // i.e. the shorter way around the globe. New York is west of Seoul on the
+    // flat map but closer travelling east, so its chip should point east.
+    function wrapLngNear(lng, refLng) {
+      let d = lng - refLng;
+      while (d > 180) d -= 360;
+      while (d < -180) d += 360;
+      return refLng + d;
+    }
 
     function ensureEdgeLayer() {
       if (edgeLayer) return;
@@ -830,8 +852,11 @@
       });
       if (!off.length) return;
 
+      const refLng = map.getCenter().lng;
       clusterPins(off, 25).forEach((cl) => {
-        const cp = map.latLngToContainerPoint([cl.clat, cl.clng]);
+        // Point toward the nearer copy of the cluster (shorter way round).
+        const adjLng = wrapLngNear(cl.clng, refLng);
+        const cp = map.latLngToContainerPoint([cl.clat, adjLng]);
         const dx = cp.x - cx, dy = cp.y - cy;
         if (dx === 0 && dy === 0) return;
         // Smallest t>0 where center + t*(dir) hits the inset rectangle.
@@ -851,23 +876,18 @@
         btn.innerHTML =
           `<span class="edge-arrow" style="transform:rotate(${ang}deg) translateX(24px)"><i></i></span>` +
           `<span class="edge-badge"><span class="edge-face">${cl.items.length}</span></span>`;
-        btn.addEventListener("click", () => flyToNearestInCluster(cl));
+        btn.addEventListener("click", () => flyToClusterMiddle(cl));
         edgeLayer.appendChild(btn);
       });
     }
 
-    // Fly straight to the pin in this cluster nearest the current view and
-    // open it. Opening the popup reuses the marker's own zoom-and-center
-    // logic, so the view lands framed on that pin.
-    function flyToNearestInCluster(cl) {
-      const center = map.getCenter();
-      let best = null, bd = Infinity;
-      cl.items.forEach((c) => {
-        const d = map.distance(center, [c.lat, c.lng]);
-        if (d < bd) { bd = d; best = c; }
-      });
-      const m = best && markerByCafe.get(best);
-      if (m) m.openPopup();
+    // Fly to the middle of the cluster at the opening (Seoul) zoom level —
+    // zooming out if we're currently zoomed in — and travel the shorter way
+    // around the globe so the motion matches the arrow.
+    function flyToClusterMiddle(cl) {
+      const adjLng = wrapLngNear(cl.clng, map.getCenter().lng);
+      map.closePopup();
+      map.flyTo([cl.clat, adjLng], homeZoom, { duration: 1.1 });
     }
 
     map.on("moveend zoomend", recomputeEdges);
@@ -875,13 +895,11 @@
     function render(rows) {
       markerLayer.clearLayers();
       locatedCafes = [];
-      markerByCafe.clear();
       const cafes = groupCafes(rows);
       cafes.forEach((cafe) => {
         if (!isFinite(cafe.lat) || !isFinite(cafe.lng)) return;
         const m = L.marker([cafe.lat, cafe.lng], { icon: makeIcon(cafe) });
         locatedCafes.push(cafe);
-        markerByCafe.set(cafe, m);
         // We pan ourselves so the pin centers AND the whole popup stays on screen.
         m.bindPopup(popupHtml(cafe), { closeButton: true, maxWidth: 320, autoPan: false });
         m.on("popupopen", (e) => {
@@ -908,12 +926,16 @@
       // New York — stays off-screen and shows up as an edge marker.
       const SEOUL = [37.5326, 127.0246]; // central Gangnam anchor
       if (locatedCafes.length === 1) {
-        map.setView([locatedCafes[0].lat, locatedCafes[0].lng], 16);
+        homeZoom = 16;
+        map.setView([locatedCafes[0].lat, locatedCafes[0].lng], homeZoom);
       } else if (locatedCafes.length) {
         const clusters = clusterPins(locatedCafes.slice(), 25);
         clusters.sort((a, b) => distKm([a.clat, a.clng], SEOUL) - distKm([b.clat, b.clng], SEOUL));
-        const home = clusters[0].items.map((c) => [c.lat, c.lng]);
-        map.fitBounds(home, { padding: [60, 60], maxZoom: 16 });
+        const hb = L.latLngBounds(clusters[0].items.map((c) => [c.lat, c.lng]));
+        // Capture the exact zoom this frame settles on so chip clicks can
+        // return every cluster to the same "city view" scale.
+        homeZoom = Math.min(map.getBoundsZoom(hb, false, L.point(60, 60)), 16);
+        map.setView(hb.getCenter(), homeZoom);
       }
       recomputeEdges();
       // Size addresses to the largest uniform font that keeps them one-line.
