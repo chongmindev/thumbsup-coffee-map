@@ -1041,7 +1041,10 @@
     function fitPrecise(bounds, animate) {
       const prevSnap = map.options.zoomSnap;
       map.options.zoomSnap = 0;
-      const opts = { padding: [80, 80], maxZoom: 16 };
+      // Padding scales with the viewport's short side (6%, clamped 20–64px), so a
+      // small embed frames Seoul tightly instead of zooming way out for a fixed 80px.
+      const pad = Math.max(20, Math.min(64, Math.round(Math.min(map.getSize().x, map.getSize().y) * 0.06)));
+      const opts = { padding: [pad, pad], maxZoom: 16 };
       if (animate) {
         map.flyToBounds(bounds, Object.assign({ duration: 1.1 }, opts));
         map.once("moveend", () => { map.options.zoomSnap = prevSnap; });
@@ -1155,11 +1158,9 @@
       if (locatedCafes.length === 1) {
         map.setView([locatedCafes[0].lat, locatedCafes[0].lng], 16);
       } else if (locatedCafes.length) {
-        const clusters = stableClusters.slice()
-          .sort((a, b) => distKm([a.clat, a.clng], SEOUL) - distKm([b.clat, b.clng], SEOUL));
-        // Same precise, even-margin fit a chip click gives — so the opening
-        // Seoul frame matches what you get when you click back to it.
-        fitPrecise(L.latLngBounds(clusters[0].items.map((c) => [c.lat, c.lng])), false);
+        // Open centered on the Gangnam area (where most cafes are); pins
+        // elsewhere stay off-screen as edge markers.
+        map.setView([37.5172, 127.0473], 13);
       }
       recomputeEdges();
       // Size addresses to the largest uniform font that keeps them one-line.
