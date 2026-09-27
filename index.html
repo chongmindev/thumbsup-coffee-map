@@ -598,7 +598,9 @@
 
     // ---- map ----
     // Zoom control on the right so it doesn't sit under the title chip.
-    // Bigger zoom steps: each +/- click jumps 2 levels and the wheel zooms faster.
+    // Each +/- click jumps 2 levels. The wheel is kept gentle (high
+    // wheelPxPerZoomLevel + debounce) so one scroll is one 2-level step —
+    // the twitchy old value let a firm swipe overshoot into a double jump.
     // Embed-friendly interaction: on a touch device one finger scrolls the page
     // and two fingers move the map; on desktop the wheel only zooms once you
     // click the map (see the gesture block below). The world is bounded so you
@@ -611,7 +613,8 @@
       touchZoom: true,
       zoomSnap: 2,
       zoomDelta: 2,
-      wheelPxPerZoomLevel: 25,
+      wheelPxPerZoomLevel: 100,   // gentle wheel: one scroll = one step, no double jump
+      wheelDebounceTime: 60,      // absorb the trackpad momentum tail
       minZoom: 3,
       maxBounds: [[-85, -180], [85, 180]],
       maxBoundsViscosity: 1.0,
