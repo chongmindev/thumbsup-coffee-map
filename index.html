@@ -1158,9 +1158,9 @@
       if (locatedCafes.length === 1) {
         map.setView([locatedCafes[0].lat, locatedCafes[0].lng], 16);
       } else if (locatedCafes.length) {
-        // Open centered on the Gangnam area (where most cafes are); pins
+        // Open centered on Sinsa (Garosu-gil) + Apgujeong; pins
         // elsewhere stay off-screen as edge markers.
-        map.setView([37.5172, 127.0473], 13);
+        map.setView([37.5250, 127.0290], 16);
       }
       recomputeEdges();
       // Size addresses to the largest uniform font that keeps them one-line.
