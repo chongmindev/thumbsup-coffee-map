@@ -459,7 +459,7 @@
     /* ---- cross-device polish (Mac / Windows / iPhone / iPad) ---- */
     * { -webkit-tap-highlight-color: transparent; }
     body { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-    .title-chip, .leaflet-control, .map-veil, .map-loading, .map-error {
+    .title-chip, .leaflet-control, .map-loading, .map-error {
       -webkit-user-select: none; user-select: none;
     }
     /* keep the chrome clear of the iPhone notch / rounded corners full-screen */
@@ -473,24 +473,6 @@
     @media (max-width: 360px) {
       .leaflet-popup-content { width: 76vw !important; }
     }
-
-    /* ---- gesture hint: "click to interact" / "use two fingers" ---- */
-    .map-veil {
-      position: absolute; inset: 0; z-index: 950;
-      pointer-events: none;              /* a hint only — never blocks pins/drag */
-      display: flex; align-items: center; justify-content: center;
-      opacity: 1; transition: opacity 260ms ease;
-    }
-    .map-veil.hidden { opacity: 0; }
-    .veil-msg {
-      display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(34, 26, 20, 0.74); color: #fff;
-      font-weight: 600; font-size: 13.5px;
-      padding: 10px 16px; border-radius: 999px;
-      box-shadow: 0 6px 18px rgba(34, 26, 20, 0.3);
-      -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-    }
-    .veil-msg svg { width: 17px; height: 17px; flex: none; }
 
     /* ---- loading spinner + error card (shared full-bleed cover) ---- */
     .map-loading, .map-error {
@@ -531,7 +513,6 @@
   <div class="title-chip"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 9h1.4a2.6 2.6 0 0 1 0 5.2H17"/><path d="M7.5 2.5c0 1-.9 1.4-.9 2.4S7.5 6.5 7.5 6.5"/><path d="M11 2.5c0 1-.9 1.4-.9 2.4S11 6.5 11 6.5"/></svg></span> Thumbs Up Coffee</div>
 
   <!-- gesture hint (filled in by JS), loading spinner, and load-error card -->
-  <div class="map-veil hidden"><span class="veil-msg" id="veilMsg"></span></div>
   <div class="map-loading" id="mapLoading"><span class="spinner"></span></div>
   <div class="map-error hidden" id="mapError">
     <div class="err-card">
@@ -601,15 +582,11 @@
     // Each +/- click jumps 2 levels. The wheel is kept gentle (high
     // wheelPxPerZoomLevel + debounce) so one scroll is one 2-level step —
     // the twitchy old value let a firm swipe overshoot into a double jump.
-    // Embed-friendly interaction: on a touch device one finger scrolls the page
-    // and two fingers move the map; on desktop the wheel only zooms once you
-    // click the map (see the gesture block below). The world is bounded so you
-    // can't zoom out to repeated globes or pan into the void.
-    const isCoarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    // The map is fully interactive on its own. Pages that embed it add their
+    // own click-to-interact guard so it can't hijack their scroll. The world is
+    // bounded so you can't zoom out to repeated globes or pan into the void.
     const map = L.map("map", {
       zoomControl: false,
-      scrollWheelZoom: false,          // enabled on click (desktop); 2-finger on touch
-      dragging: !isCoarse,             // touch: 1 finger = page scroll, 2 fingers = move map
       touchZoom: true,
       zoomSnap: 2,
       zoomDelta: 2,
@@ -621,33 +598,6 @@
       worldCopyJump: false
     }).setView([37.5250, 127.0290], 16);  // Sinsa (Garosu-gil) + Apgujeong
     L.control.zoom({ position: "topright" }).addTo(map);
-
-    // ---- cooperative gestures: never hijack the host page's scroll ----
-    (function () {
-      const el = map.getContainer();
-      const veil = document.querySelector(".map-veil");
-      const msg = document.getElementById("veilMsg");
-      const moveIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><path d="m9 6 3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>';
-      let hintTimer;
-      function hint(text, persist) {
-        msg.innerHTML = moveIcon + "<span>" + text + "</span>";
-        veil.classList.remove("hidden");
-        clearTimeout(hintTimer);
-        if (!persist) hintTimer = setTimeout(() => veil.classList.add("hidden"), 1500);
-      }
-      function clear() { clearTimeout(hintTimer); veil.classList.add("hidden"); }
-
-      if (isCoarse) {
-        // one finger drifts -> remind them; two fingers work via touchZoom (pans + zooms)
-        el.addEventListener("touchstart", (e) => { if (e.touches.length >= 2) clear(); }, { passive: true });
-        el.addEventListener("touchmove", (e) => { if (e.touches.length === 1) hint("Use two fingers to move the map"); }, { passive: true });
-      } else {
-        hint("Click to interact", true);
-        el.addEventListener("click", () => { map.scrollWheelZoom.enable(); clear(); });
-        el.addEventListener("mouseleave", () => { map.scrollWheelZoom.disable(); hint("Click to interact", true); });
-        el.addEventListener("wheel", () => { if (!map.scrollWheelZoom.enabled()) hint("Click the map, then scroll to zoom", true); }, { passive: true });
-      }
-    })();
 
     // A user zoom (scroll or buttons) closes the open card. The programmatic
     // zoom we do when opening a card sets `autoPanning` so it doesn't self-close.
