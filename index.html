@@ -908,11 +908,9 @@
     // ===============================================================
     // OFF-SCREEN EDGE MARKERS
     // ---------------------------------------------------------------
-    // Every off-screen cafe belongs to exactly one chip pinned to the
-    // viewport edge. Cafes are grouped by the screen direction they lie in
-    // (8 sectors) and by place (Seoul, New York...), so a chip always points
-    // where its cafes actually are, and the counts on screen add up to the
-    // number of hidden cafes. Clicking a chip frames the cafes it counts.
+    // One chip per other region (Seoul, New York...), pinned to the viewport
+    // edge in that region's direction, with its cafe count. The region you're
+    // in gets no chip. Clicking a chip frames that whole region.
     // ===============================================================
     let edgeLayer = null;              // the overlay div
     let locatedCafes = [];             // cafes that have coordinates
@@ -955,8 +953,7 @@
       return { ex: cx + dx * t, ey: cy + dy * t, edge: edge, ang: Math.atan2(dy, dx) * 180 / Math.PI, on: cp.x >= 0 && cp.x <= w && cp.y >= 0 && cp.y <= h };
     }
 
-    // Mean position of the off-screen cafes a chip counts. They all sit in
-    // one 45-degree sector, so their mean does too: the arrow stays honest.
+    // Middle of a region's cafes: where its chip points.
     function anchorOf(chip) {
       const n = chip.off.length;
       return [chip.off.reduce((s, i) => s + i.lat, 0) / n, chip.off.reduce((s, i) => s + i.lng, 0) / n];
@@ -983,7 +980,7 @@
       }
     }
 
-    // Rebuild the edge chips from whatever is currently off-screen.
+    // Rebuild the edge chips for the regions you're not in.
     function recomputeEdges() {
       ensureEdgeLayer();
       edgeLayer.innerHTML = "";
@@ -994,33 +991,29 @@
       const INSET = 46; // keep the chip fully on screen
       const geom = (chip) => { const a = anchorOf(chip); return edgeGeom(a[0], a[1], w, h, cx, cy, INSET); };
 
-      // One group per (direction sector, place). A cafe north and a cafe
-      // south can never share a chip, so no chip ever claims "10 this way"
-      // when only half of them are.
-      const groups = new Map();
+      // One chip per REGION (Seoul, New York...), never per shop. The regions
+      // you're in get no chips: a region counts as "here" if any of its cafes
+      // is on screen, or the map center is inside its area (padded a few km,
+      // so panning to an empty street in Seoul still counts as Seoul).
+      const regions = new Map();
       locatedCafes.forEach((it) => {
-        const p = map.latLngToContainerPoint([it.lat, it.lng]);
-        if (p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h) return;
-        const sector = (((Math.round(Math.atan2(p.y - cy, p.x - cx) / (Math.PI / 4))) % 8) + 8) % 8;
         const place = placeName(it);
-        const key = sector + "|" + place;
-        if (!groups.has(key)) groups.set(key, { place: place, off: [] });
-        groups.get(key).off.push(it);
+        if (!regions.has(place)) regions.set(place, { place: place, off: [] });
+        regions.get(place).off.push(it);
       });
-      if (!groups.size) return;
+      const center = map.getCenter();
+      const onScreen = (it) => { const p = map.latLngToContainerPoint([it.lat, it.lng]); return p.x >= 0 && p.x <= w && p.y >= 0 && p.y <= h; };
+      const here = (r) => r.off.some(onScreen) ||
+        L.latLngBounds(r.off.map((i) => [i.lat, i.lng])).pad(0.1).contains(center) ||
+        r.off.some((i) => map.distance(center, [i.lat, i.lng]) < 3000);
+      const groups = [...regions.values()].filter((r) => !here(r));
+      if (!groups.length) return;
 
-      // Chips of the same place that land on top of each other (neighboring
-      // sectors) merge; that is still one direction. Chips of different
-      // places never merge (that would mislabel some cafes); they slide apart
-      // along the edge instead.
+      // Regions whose chips would overlap (same direction, e.g. Yongin and
+      // Seongnam from Seoul) slide apart along the edge.
       const MERGE = 54;
-      const placed = [];
-      groups.forEach((c) => {
-        c._g = geom(c);
-        const same = placed.find((m) => m.place === c.place && Math.hypot(m._g.ex - c._g.ex, m._g.ey - c._g.ey) < MERGE);
-        if (same) { same.off = same.off.concat(c.off); same._g = geom(same); }
-        else placed.push(c);
-      });
+      const placed = groups;
+      placed.forEach((c) => { c._g = geom(c); });
       placed.forEach((c, i) => {
         for (let tries = 0; tries < placed.length; tries++) {
           const hit = placed.slice(0, i).find((m) => Math.hypot(m._g.ex - c._g.ex, m._g.ey - c._g.ey) < MERGE);
@@ -1050,7 +1043,7 @@
           (label ? `<span class="edge-label">${label}</span>` : "");
         btn.addEventListener("click", () => {
           map.closePopup();
-          // Fit exactly the cafes this chip counts.
+          // Frame the whole region.
           fitPrecise(L.latLngBounds(c.off.map((i) => [i.lat, i.lng])), true);
         });
         btn._edge = g.edge;
