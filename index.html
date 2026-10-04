@@ -713,8 +713,8 @@
     // Score → green / amber / red (four steps for a bit more nuance).
     function ratingColor(r) {
       if (r >= 4.5) return "#2e9e54"; // excellent — green
-      if (r >= 4.0) return "#7bbf46"; // great — lime green
-      if (r >= 3.0) return "#f2b83e"; // ok — amber
+      if (r > 3.5) return "#7bbf46";  // great — lime green
+      if (r >= 2.0) return "#f2b83e"; // ok — amber (2.0 to 3.5)
       return "#db5540";               // low — red
     }
 
