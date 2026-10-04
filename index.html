@@ -6,10 +6,10 @@
   <title>Thumbs Up Coffee Map</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
 
-  <!-- Font: Inter (clean, widely used on modern blogs) -->
+  <!-- Font: Schibsted Grotesk, the main font of the blog the map is embedded in -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -31,7 +31,7 @@
 
     html, body { margin: 0; height: 100%; }
     body {
-      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+      font-family: "Schibsted Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI",
         Roboto, Helvetica, Arial, sans-serif;
       color: var(--ink);
       background: var(--cream);
@@ -321,6 +321,8 @@
     .leaflet-popup-content a.ig-btn,
     .leaflet-popup-content a.ig-btn:visited { color: #fff; }
 
+    .leaflet-container { font-family: inherit; }
+
     /* ---- floating title chip ---- */
     .title-chip {
       position: absolute;
@@ -330,10 +332,11 @@
       background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(6px);
       border-radius: 999px;
-      padding: 8px 14px 8px 12px;
+      padding: 6px;
       display: flex;
       align-items: center;
-      gap: 8px;
+      cursor: default;
+      transition: padding 280ms cubic-bezier(0.32, 0.72, 0, 1);
       box-shadow: 0 4px 14px rgba(34, 26, 20, 0.18);
       font-weight: 700;
       color: var(--espresso);
@@ -345,6 +348,16 @@
       display: flex; align-items: center; justify-content: center;
     }
     .title-chip .dot svg { width: 14px; height: 14px; }
+    /* collapsed to just the logo; the name slides out on hover / focus / tap */
+    .title-text {
+      max-width: 0; overflow: hidden; white-space: nowrap; opacity: 0;
+      transition: max-width 280ms cubic-bezier(0.32, 0.72, 0, 1), margin 280ms cubic-bezier(0.32, 0.72, 0, 1), opacity 180ms ease;
+    }
+    .title-chip:hover, .title-chip:focus-visible, .title-chip.open { padding-right: 14px; }
+    .title-chip:hover .title-text, .title-chip:focus-visible .title-text, .title-chip.open .title-text {
+      max-width: 180px; margin-left: 8px; opacity: 1;
+    }
+    .title-chip:focus-visible { outline: 2px solid var(--espresso); outline-offset: 2px; }
 
     /* ---- off-screen edge markers ---- */
     /* A transparent overlay that sits above the tiles/pins but below the
@@ -510,7 +523,7 @@
 </head>
 <body>
   <div id="map"></div>
-  <div class="title-chip"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 9h1.4a2.6 2.6 0 0 1 0 5.2H17"/><path d="M7.5 2.5c0 1-.9 1.4-.9 2.4S7.5 6.5 7.5 6.5"/><path d="M11 2.5c0 1-.9 1.4-.9 2.4S11 6.5 11 6.5"/></svg></span> Thumbs Up Coffee</div>
+  <div class="title-chip" tabindex="0" aria-label="Thumbs Up Coffee"><span class="dot"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h13v4a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 9h1.4a2.6 2.6 0 0 1 0 5.2H17"/><path d="M7.5 2.5c0 1-.9 1.4-.9 2.4S7.5 6.5 7.5 6.5"/><path d="M11 2.5c0 1-.9 1.4-.9 2.4S11 6.5 11 6.5"/></svg></span><span class="title-text">Thumbs Up Coffee</span></div>
 
   <!-- gesture hint (filled in by JS), loading spinner, and load-error card -->
   <div class="map-loading" id="mapLoading"><span class="spinner"></span></div>
@@ -598,6 +611,14 @@
       worldCopyJump: false
     }).setView([37.5250, 127.0290], 16);  // Sinsa (Garosu-gil) + Apgujeong
     L.control.zoom({ position: "topright" }).addTo(map);
+
+    // Touch has no hover: a tap on the logo shows the name, a tap anywhere else hides it.
+    (function () {
+      const chip = document.querySelector(".title-chip");
+      if (!(window.matchMedia && window.matchMedia("(hover: none)").matches)) return;
+      chip.addEventListener("click", (e) => { e.stopPropagation(); chip.classList.toggle("open"); });
+      document.addEventListener("click", () => chip.classList.remove("open"));
+    })();
 
     // A user zoom (scroll or buttons) closes the open card. The programmatic
     // zoom we do when opening a card sets `autoPanning` so it doesn't self-close.
@@ -756,7 +777,7 @@
       if (!texts.length) return;
       const span = document.createElement("span");
       span.style.cssText = "position:absolute;left:-9999px;visibility:hidden;white-space:nowrap;" +
-        "font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;font-weight:400;";
+        "font-family:'Schibsted Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;font-weight:400;";
       document.body.appendChild(span);
       const ref = 20, avail = 244 - 4; // card text width minus a little safety
       let size = 13; // upper cap
