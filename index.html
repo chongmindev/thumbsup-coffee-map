@@ -734,7 +734,9 @@
 
     function makeIcon(cafe) {
       const top = cafe.visits[0];
-      const r = parseFloat(top.rating);
+      // Several posts on one shop: the pin shows its best rating.
+      const scores = cafe.visits.map((v) => parseFloat(v.rating)).filter(isFinite);
+      const r = scores.length ? Math.max(...scores) : NaN;
       const rv = r.toFixed(1); // always one decimal, e.g. "2.0", "5.0"
       const rating = isFinite(r)
         ? `<div class="pin-score" style="background:${ratingColor(r)}">${rv}</div>` : "";
@@ -930,8 +932,7 @@
     }
     function placeName(c) {
       const s = (c.area || "") + ", " + (c.address || "");
-      if (/brooklyn|kings county/i.test(s)) return "Brooklyn";
-      if (/manhattan|new york/i.test(s)) return "New York";
+      if (/manhattan|brooklyn|new york/i.test(s)) return "New York";
       if (/seoul/i.test(s)) return "Seoul";
       if (/yongin|giheung/i.test(s)) return "Yongin";
       if (/seongnam|bundang|pangyo/i.test(s)) return "Seongnam";
