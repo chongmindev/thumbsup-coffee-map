@@ -934,6 +934,7 @@
       if (/seoul/i.test(s)) return "Seoul";
       if (/yongin|giheung/i.test(s)) return "Yongin";
       if (/seongnam|bundang|pangyo/i.test(s)) return "Seongnam";
+      if (/osaka/i.test(s)) return "Osaka";
       return (lastPart(c.area) || lastPart(shortenAddr(c.address)))
         .replace(/\s+(County|District)$/i, "").replace(/-(gu|si|dong)$/i, "");
     }
